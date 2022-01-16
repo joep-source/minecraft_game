@@ -1,6 +1,8 @@
 from ursina import *
 from ursina.prefabs.first_person_controller import FirstPersonController
 
+from generate_world import world_init
+
 
 class CustomFirstPersonController(FirstPersonController):
     def input(self, key):
@@ -24,14 +26,19 @@ class Block(Button):
     create_position = None
 
     # By setting the parent to scene and the model to 'cube' it becomes a 3d button.
-    def __init__(self, position=(0, 0, 0)):
+    def __init__(self, position=(0, 0, 0), colour=None):
+        if not colour:
+            colour = color.color(0, 0, random.uniform(0.9, 1.0))
+        else:
+            colour = rgb(*colour)
+
         super().__init__(
             parent=scene,
             position=position,
             model="cube",
             origin_y=0.5,
             texture="white_cube",
-            color=color.color(0, 0, random.uniform(0.9, 1.0)),
+            color=colour,
             highlight_color=color.lime,
         )
 
@@ -45,9 +52,12 @@ class Block(Button):
 
 class UrsinaMC(Ursina):
     blocks = []
-    world_size = 12
+    render_size = 16
+    world_size = 100
 
     def __init__(self, **kwargs):
+        self.world_map = world_init(self.world_size)
+        self.player_position_start = [50, 3, 50]
         self.world_create()
         super().__init__(**kwargs)
         self.gravity = 0
@@ -71,17 +81,28 @@ class UrsinaMC(Ursina):
 
     # ========================================================================
 
+    def pos_player_to_world(self, x, z):
+        new_x = int(x) + self.player_position_start[0]
+        new_z = int(z) + self.player_position_start[2]
+        return [new_x, new_z]
+
+    def world_render_block(self, x, z):
+        world_pos = self.pos_player_to_world(x=x, z=z)
+        if all([0 <= pos < self.world_size for pos in world_pos]):
+            colour = self.world_map[world_pos[0]][world_pos[1]].color(multiply=255)
+            self.blocks.append(Block(position=(x, 0, z), colour=colour))
+
     def world_create(self):
-        for z in range(-self.world_size, self.world_size):
-            for x in range(-self.world_size, self.world_size):
-                self.blocks.append(Block(position=(x, 0, z)))
+        for z in range(-self.render_size, self.render_size):
+            for x in range(-self.render_size, self.render_size):
+                self.world_render_block(x=x, z=z)
 
     def world_move_destroy(self):
         __blocks_len = len(self.blocks)
         player_x, player_z = self.player.pos("x"), self.player.pos("z")
         block: Block
         for block in reversed(self.blocks):
-            if self.world_size < max(
+            if self.render_size < max(
                 abs(block.position.x - player_x), abs(block.position.z - player_z)
             ):
                 self.blocks.remove(block)
@@ -95,18 +116,18 @@ class UrsinaMC(Ursina):
 
         pos_x = self.player.pos("x")
         pos_z = self.player.pos("z")
-        size = self.world_size
+        size = self.render_size
 
         new_x = [n for n in [pos_x - size, pos_x + size] if n not in blocks_x]
         new_z = [n for n in [pos_z - size, pos_z + size] if n not in blocks_z]
 
         for x in new_x:
             for z in blocks_z:
-                self.blocks.append(Block(position=(x, 0, z)))
+                self.world_render_block(x=x, z=z)
             blocks_x.add(x)
         for z in new_z:
             for x in blocks_x:
-                self.blocks.append(Block(position=(x, 0, z)))
+                self.world_render_block(x=x, z=z)
         print(f"add {len(self.blocks) - __blocks_len} blocks")
 
     def world_click_handler(self):
