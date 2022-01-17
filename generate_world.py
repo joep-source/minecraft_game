@@ -2,7 +2,6 @@ import numpy as np
 import random
 import noise
 
-from conf import NOISE_HEIGHT, NOISE_HEAT
 from block import BiomeBlock
 
 NOISE_HEIGHT = {

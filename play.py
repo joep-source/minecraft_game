@@ -5,6 +5,10 @@ from ursina.prefabs.first_person_controller import FirstPersonController
 from generate_world import world_init
 from utils import pos_to_xyz
 
+X = 0
+Y = 1
+Z = 2
+
 
 class CustomFirstPersonController(FirstPersonController):
     position_previous = None
@@ -20,7 +24,7 @@ class CustomFirstPersonController(FirstPersonController):
             self.gravity = 1
             self.jump()
         if key == "q":
-            self.y += 1
+            self.y += 5
             self.gravity = 0
         if key == "e":
             self.y -= 1
@@ -30,8 +34,8 @@ class CustomFirstPersonController(FirstPersonController):
     def new_position(self) -> bool:
         pos_cur = pos_to_xyz(self.position)
         pos_old = pos_to_xyz(self.position_previous)
-        if (pos_cur[0], pos_cur[2]) != (pos_old[0], pos_old[2]):
-            print(f"Position new {pos_to_xyz(self.position)}")
+        if (pos_cur[X], pos_cur[Z]) != (pos_old[X], pos_old[Z]):
+            # print(f"Position new {pos_to_xyz(self.position)}")
             self.position_previous = self.position
             return True
         return False
@@ -42,18 +46,16 @@ class Block(Button):
     create_position = None
 
     # By setting the parent to scene and the model to 'cube' it becomes a 3d button.
-    def __init__(self, position=(0, 0, 0), colour=None):
-        if not colour:
-            colour = color.color(0, 0, random.uniform(0.9, 1.0))
-        else:
-            colour = rgb(*colour)
-
+    def __init__(self, position=(0, 0, 0), colour=None, fix_pos=0.5):
+        position = list(position)
+        position[X] = position[X] + fix_pos
+        position[Z] = position[Z] + fix_pos
         super().__init__(
             parent=scene,
-            position=[pos + 0.5 for pos in position],
+            position=position,
             model="cube",
             texture="white_cube",
-            color=colour,
+            color=rgb(*colour),
             highlight_color=color.lime,
         )
 
@@ -71,11 +73,12 @@ class UrsinaMC(Ursina):
     world_size = 100
 
     def __init__(self, **kwargs):
-        self.world_map = world_init(self.world_size)
-        position_start = [15.5, 1, 15.5]
-        self.world_create(position_start=position_start)
         super().__init__(**kwargs)
+        self.world_map = world_init(self.world_size)
+        position_start = [15.5, 10, 15.5]
+        self.world_create(position_start=position_start)
         self.player = CustomFirstPersonController(position_start=position_start)
+        self.player.gravity = 0
 
     def _update(self, task):
         if self.player.new_position():
@@ -90,14 +93,15 @@ class UrsinaMC(Ursina):
     def world_render_block(self, position):
         x, y, z = pos_to_xyz(position)
         if all([0 <= pos < self.world_size for pos in (x, z)]):
+            y = self.world_map[x][z].world_height
             colour = self.world_map[x][z].color(multiply=255)
             self.blocks.append(Block(position=(x, y, z), colour=colour))
 
     def world_create(self, position_start=[0, 0, 0]):
         for z in range(-self.render_size, self.render_size + 1):
-            z += position_start[2]
+            z += position_start[Z]
             for x in range(-self.render_size, self.render_size + 1):
-                x += position_start[0]
+                x += position_start[X]
                 self.world_render_block([x, 0, z])
 
     def world_move_destroy(self):
@@ -139,7 +143,11 @@ class UrsinaMC(Ursina):
                 self.blocks.remove(block)
                 destroy(block)
             elif block.create_position:
-                self.blocks.append(Block(position=block.create_position))
+                new_block = Block(
+                    position=block.create_position, colour=[138, 43, 226], fix_pos=False
+                )
+                self.blocks.append(new_block)
+                block.create_position = None
 
 
 app = UrsinaMC()
