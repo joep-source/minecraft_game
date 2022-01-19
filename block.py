@@ -3,6 +3,7 @@ from matplotlib import colors
 
 
 class Bioms(Enum):
+    SEA = "blue"
     LAKE = "royalblue"
     DESERT = "wheat"
     PLANE = "limegreen"
@@ -25,22 +26,24 @@ class BiomeBlock:
         self.world_height = int(self.height * 10)
 
     def set_biome(self):
-        if self.height < 0.3:
-            self.height = 0.2
+        if self.height == 0:
+            self.biome = Bioms.SEA
+        elif self.height < 0.1:
+            self.height = 0.1
             self.biome = Bioms.LAKE
         elif self.height < 0.5:
-            if self.heat < 0.25:
+            if self.heat > 0.6:
                 self.biome = Bioms.DESERT
             else:
                 self.biome = Bioms.PLANE
-        elif self.height < 0.65:
+        elif self.height < 0.6:
             self.biome = Bioms.PLANE
         elif self.height < 0.8:
             self.biome = Bioms.HILL
-        elif self.height < 0.95:
-            self.biome = Bioms.MOUNTAIN
-        else:
+        elif self.height > 0.95 and self.heat > 0.6:
             self.biome = Bioms.MOUNTAIN_SNOW
+        else:
+            self.biome = Bioms.MOUNTAIN
 
     def color(self, multiply=None):
         colour = colors.to_rgb(self.biome.value)

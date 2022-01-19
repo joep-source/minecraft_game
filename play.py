@@ -1,13 +1,15 @@
 from typing import List
-from ursina import *
+
+from ursina.color import rgb, magenta
+from ursina.main import Ursina
+from ursina.mouse import instance as mouse
 from ursina.prefabs.first_person_controller import FirstPersonController
+from ursina.prefabs.first_person_controller import Button
+from ursina.scene import instance as scene
+from ursina.ursinastuff import destroy
 
 from generate_world import world_init
-from utils import pos_to_xyz
-
-X = 0
-Y = 1
-Z = 2
+from utils import *
 
 
 class CustomFirstPersonController(FirstPersonController):
@@ -56,7 +58,7 @@ class Block(Button):
             model="cube",
             texture="white_cube",
             color=rgb(*colour),
-            highlight_color=color.lime,
+            highlight_color=magenta,
         )
 
     def input(self, key):
