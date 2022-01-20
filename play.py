@@ -71,13 +71,14 @@ class Block(Button):
 
 class UrsinaMC(Ursina):
     blocks: List[Block] = []
-    render_size = 16
-    world_size = 100
+    render_size = 24
+    world_size = 512
+    seed = 34315
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.world_map = world_init(self.world_size)
-        position_start = [15.5, 10, 15.5]
+        self.world_map = world_init(size=self.world_size, seed=self.seed)
+        position_start = [250.5, 40, 250.5]
         self.world_create(position_start=position_start)
         self.player = CustomFirstPersonController(position_start=position_start)
         self.player.gravity = 0

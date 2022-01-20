@@ -1,4 +1,5 @@
 from enum import Enum
+import math
 from matplotlib import colors
 
 
@@ -10,7 +11,6 @@ class Bioms(Enum):
     HILL = "darkgreen"
     MOUNTAIN = "silver"
     MOUNTAIN_SNOW = "white"
-    WATER = "white"
 
 
 class BiomeBlock:
@@ -20,27 +20,29 @@ class BiomeBlock:
     world_height: int
 
     def __init__(self, height, heat):
-        self.height = height
-        self.heat = heat
-        self.set_biome()
-        self.world_height = int(self.height * 10)
+        self.set_biome(height, heat)
+        self.set_world_height(height)
 
-    def set_biome(self):
-        if self.height == 0:
+    def set_world_height(self, height):
+        height = math.pow(height, 4)  # mountain steepness
+        height = int(height * 40)  # general hight curve
+        self.world_height = height
+
+    def set_biome(self, height, heat):
+        if height == 0:
             self.biome = Bioms.SEA
-        elif self.height < 0.1:
-            self.height = 0.1
+        elif height < 0.1:
             self.biome = Bioms.LAKE
-        elif self.height < 0.5:
-            if self.heat > 0.6:
+        elif height < 0.5:
+            if heat > 0.6:
                 self.biome = Bioms.DESERT
             else:
                 self.biome = Bioms.PLANE
-        elif self.height < 0.6:
+        elif height < 0.6:
             self.biome = Bioms.PLANE
-        elif self.height < 0.8:
+        elif height < 0.8:
             self.biome = Bioms.HILL
-        elif self.height > 0.95 and self.heat > 0.6:
+        elif height > 0.95 and heat > 0.6:
             self.biome = Bioms.MOUNTAIN_SNOW
         else:
             self.biome = Bioms.MOUNTAIN
