@@ -85,7 +85,7 @@ def world_init(size=1024, seed=1, island=True):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    size = 100
+    size = 300
     print("Generating world map")
     world_map = world_init(size, seed=random_seed())
 

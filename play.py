@@ -1,3 +1,4 @@
+import operator
 from typing import List
 
 from ursina.color import rgb, magenta
@@ -71,13 +72,13 @@ class Block(Button):
 
 class UrsinaMC(Ursina):
     blocks: List[Block] = []
-    render_size = 24
+    render_size = 10
     world_size = 512
     seed = 34315
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.world_map = world_init(size=self.world_size, seed=self.seed)
+        self.world_map2d = world_init(size=self.world_size, seed=self.seed)
         position_start = [250.5, 40, 250.5]
         self.world_create(position_start=position_start)
         self.player = CustomFirstPersonController(position_start=position_start)
@@ -85,7 +86,7 @@ class UrsinaMC(Ursina):
 
     def _update(self, task):
         if self.player.new_position():
-            # print(f"Total blocks {len(self.blocks)}")
+            print(f"Total blocks {len(self.blocks)}")
             self.world_move_destroy()
             self.world_move_create()
         self.world_click_handler()
@@ -96,8 +97,8 @@ class UrsinaMC(Ursina):
     def world_render_block(self, position):
         x, y, z = pos_to_xyz(position)
         if all([0 <= pos < self.world_size for pos in (x, z)]):
-            y = self.world_map[x][z].world_height
-            colour = self.world_map[x][z].color(multiply=255)
+            y = self.world_map2d[x][z].world_height
+            colour = self.world_map2d[x][z].color(multiply=255)
             self.blocks.append(Block(position=(x, y, z), colour=colour))
 
     def world_create(self, position_start=[0, 0, 0]):
@@ -106,6 +107,7 @@ class UrsinaMC(Ursina):
             for x in range(-self.render_size, self.render_size + 1):
                 x += position_start[X]
                 self.world_render_block([x, 0, z])
+        self.world_fill_heights()
 
     def world_move_destroy(self):
         # __blocks_len = len(self.blocks)
@@ -120,6 +122,31 @@ class UrsinaMC(Ursina):
                 self.blocks.remove(block)
                 destroy(block)
         # print(f"del {__blocks_len - len(self.blocks)} blocks")
+
+    def world_fill_heights(self):
+        def _is_lowest_block(self, check_block):
+            return not any(
+                check_block.position.x == block.position.x
+                and check_block.position.z == block.position.z
+                and check_block.position.y < block.position.y
+                for block in self.blocks
+            )
+
+        self.blocks.sort(key=lambda b: b.position.y, reverse=True)
+        for block in self.blocks:
+            if _is_lowest_block(self, block):
+                x = int(block.position.x)
+                y = int(block.position.y)
+                z = int(block.position.z)
+
+                for x_diff, z_diff in [[1, 1], [1, -1], [-1, 1], [1, -1]]:
+                    block_around = self.world_map2d[x + x_diff][z + z_diff]
+                    if block.position.y - 1 > block_around.world_height:
+                        print(f"add block {x=} {y=} {z=}")
+                        colour = self.world_map2d[x][z].color(multiply=255)
+                        self.blocks.append(Block(position=(x, y - 1, z), colour=colour))
+                        self.blocks.sort(key=lambda b: b.position.y, reverse=True)
+                        continue
 
     def world_move_create(self):
         # __blocks_len = len(self.blocks)
