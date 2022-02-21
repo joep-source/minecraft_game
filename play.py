@@ -1,6 +1,6 @@
 from typing import List
 
-from ursina.color import rgb, magenta
+from ursina.color import rgb, magenta, azure
 from ursina.main import Ursina
 from ursina.mouse import instance as mouse
 from ursina.prefabs.first_person_controller import FirstPersonController
@@ -46,9 +46,10 @@ class CustomFirstPersonController(FirstPersonController):
 class Block(Button):
     destroy = False
     create_position = None
+    is_lowest = False
 
     # By setting the parent to scene and the model to 'cube' it becomes a 3d button.
-    def __init__(self, position=(0, 0, 0), colour=None, fix_pos=0.5):
+    def __init__(self, position=(0, 0, 0), colour=None, is_lowest=True, fix_pos=0.5):
         position = list(position)
         position[X] = position[X] + fix_pos
         position[Z] = position[Z] + fix_pos
@@ -60,6 +61,7 @@ class Block(Button):
             color=rgb(*colour),
             highlight_color=magenta,
         )
+        self.is_lowest = is_lowest
 
     def input(self, key):
         if self.hovered:
@@ -71,13 +73,13 @@ class Block(Button):
 
 class UrsinaMC(Ursina):
     blocks: List[Block] = []
-    render_size = 24
-    world_size = 512
+    render_size = 8
+    world_size = 260
     seed = 34315
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.world_map = world_init(size=self.world_size, seed=self.seed)
+        self.world_map2d = world_init(size=self.world_size, seed=self.seed)
         position_start = [250.5, 40, 250.5]
         self.world_create(position_start=position_start)
         self.player = CustomFirstPersonController(position_start=position_start)
@@ -85,9 +87,10 @@ class UrsinaMC(Ursina):
 
     def _update(self, task):
         if self.player.new_position():
-            # print(f"Total blocks {len(self.blocks)}")
+            print(f"Total blocks {len(self.blocks)}")
             self.world_move_destroy()
             self.world_move_create()
+            self.world_fill_vertical()
         self.world_click_handler()
         return super()._update(task)
 
@@ -96,8 +99,8 @@ class UrsinaMC(Ursina):
     def world_render_block(self, position):
         x, y, z = pos_to_xyz(position)
         if all([0 <= pos < self.world_size for pos in (x, z)]):
-            y = self.world_map[x][z].world_height
-            colour = self.world_map[x][z].color(multiply=255)
+            y = self.world_map2d[x][z].world_height
+            colour = self.world_map2d[x][z].color(multiply=255)
             self.blocks.append(Block(position=(x, y, z), colour=colour))
 
     def world_create(self, position_start=[0, 0, 0]):
@@ -106,6 +109,7 @@ class UrsinaMC(Ursina):
             for x in range(-self.render_size, self.render_size + 1):
                 x += position_start[X]
                 self.world_render_block([x, 0, z])
+        self.world_fill_vertical()
 
     def world_move_destroy(self):
         # __blocks_len = len(self.blocks)
@@ -120,6 +124,28 @@ class UrsinaMC(Ursina):
                 self.blocks.remove(block)
                 destroy(block)
         # print(f"del {__blocks_len - len(self.blocks)} blocks")
+
+    def world_fill_vertical(self):
+        # __blocks_len = len(self.blocks)
+        self.blocks.sort(key=lambda b: b.position.y, reverse=True)
+        for block in self.blocks:
+            x = int(block.position.x)
+            y = int(block.position.y)
+            z = int(block.position.z)
+            if not block.is_lowest:
+                continue
+            for x_diff, z_diff in [[1, 0], [-1, 0], [0, 1], [0, -1]]:
+                try:
+                    block_around = self.world_map2d[x + x_diff][z + z_diff]
+                except IndexError:
+                    continue
+                if y - block_around.world_height < 2:  # Skip high difference < 2
+                    continue
+                colour = block_around.color(multiply=255)
+                self.blocks.append(Block(position=(x, y - 1, z), colour=colour))
+                block.is_lowest = False
+                break
+        # print(f"low {len(self.blocks) - __blocks_len} blocks")
 
     def world_move_create(self):
         # __blocks_len = len(self.blocks)
@@ -147,7 +173,10 @@ class UrsinaMC(Ursina):
                 destroy(block)
             elif block.create_position:
                 new_block = Block(
-                    position=block.create_position, colour=[138, 43, 226], fix_pos=False
+                    position=block.create_position,
+                    colour=[138, 43, 226],
+                    is_lowest=False,
+                    fix_pos=False,
                 )
                 self.blocks.append(new_block)
                 block.create_position = None

@@ -15,8 +15,8 @@ class Bioms(Enum):
 
 class BiomeBlock:
     biome: str
-    height: float
-    heat: float
+    # height: float
+    # heat: float
     world_height: int
 
     def __init__(self, height, heat):
