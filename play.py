@@ -74,7 +74,7 @@ class Block(Button):
 class UrsinaMC(Ursina):
     blocks: List[Block] = []
     render_size = 8
-    world_size = 512
+    world_size = 260
     seed = 34315
 
     def __init__(self, **kwargs):
@@ -135,7 +135,10 @@ class UrsinaMC(Ursina):
             if not block.is_lowest:
                 continue
             for x_diff, z_diff in [[1, 0], [-1, 0], [0, 1], [0, -1]]:
-                block_around = self.world_map2d[x + x_diff][z + z_diff]
+                try:
+                    block_around = self.world_map2d[x + x_diff][z + z_diff]
+                except IndexError:
+                    continue
                 if y - block_around.world_height < 2:  # Skip high difference < 2
                     continue
                 colour = block_around.color(multiply=255)
