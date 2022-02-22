@@ -1,14 +1,19 @@
 from typing import List
+from os import path
+from matplotlib import pyplot as plt
 
+from ursina.camera import instance as camera
 from ursina.color import rgb, magenta, azure
+from ursina.entity import Entity
 from ursina.main import Ursina
 from ursina.mouse import instance as mouse
 from ursina.prefabs.first_person_controller import FirstPersonController
 from ursina.prefabs.first_person_controller import Button
+from ursina.prefabs.sky import Sky
 from ursina.scene import instance as scene
 from ursina.ursinastuff import destroy
 
-from generate_world import world_init
+from generate_world import world_init, world_map_colors
 from utils import *
 
 
@@ -26,7 +31,7 @@ class CustomFirstPersonController(FirstPersonController):
             self.gravity = 1
             self.jump()
         if key == "q":
-            self.y += 5
+            self.y += 3
             self.gravity = 0
         if key == "e":
             self.y -= 1
@@ -71,19 +76,49 @@ class Block(Button):
                 self.destroy = True
 
 
+class MiniMap:
+    def __init__(self, world_map2d, seed, world_size):
+        self.world_map2d = world_map2d
+        self.seed = seed
+        self.world_size = world_size
+        self.save_minimap()
+        self.create_minimap()
+
+    def create_minimap(self):
+        return Entity(
+            parent=camera.ui,
+            model="quad",
+            scale=(0.25, 0.25),
+            x=0.75,
+            y=0.35,
+            texture=self.get_minimap_path(),
+        )
+
+    def save_minimap(self):
+        path = self.get_minimap_path()
+        img = world_map_colors(self.world_map2d, self.world_size)
+        plt.imsave(path, img)
+
+    def get_minimap_path(self):
+        return path.join("maps", f"seed_{self.seed}.png")
+
+
 class UrsinaMC(Ursina):
     blocks: List[Block] = []
-    render_size = 8
-    world_size = 260
+    render_size = 20
+    world_size = 512
     seed = 34315
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.world_map2d = world_init(size=self.world_size, seed=self.seed)
         position_start = [250.5, 40, 250.5]
+        self.world_map2d = world_init(size=self.world_size, seed=self.seed)
         self.world_create(position_start=position_start)
         self.player = CustomFirstPersonController(position_start=position_start)
         self.player.gravity = 0
+        # self.player.speed = 1
+        self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
+        Sky()
 
     def _update(self, task):
         if self.player.new_position():

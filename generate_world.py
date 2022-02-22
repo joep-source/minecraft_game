@@ -82,6 +82,12 @@ def world_init(size=1024, seed=1, island=True):
     return world_map
 
 
+def world_map_colors(world_map, size):
+    return np.array(
+        [[world_map[x, y].color() for x in range(size)] for y in range(size)]
+    )
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
@@ -90,9 +96,9 @@ if __name__ == "__main__":
     world_map = world_init(size, seed=random_seed())
 
     print("Show world map")
-    world_map_biome = [
-        [world_map[x, y].color() for x in range(size)] for y in range(size)
-    ]
-    plt.figure(figsize=(8, 6))
+    world_map_biome = world_map_colors(world_map, size)
+
+    plt.figure(figsize=(2.5, 2.5), frameon=False)
+    plt.axis("off")
     img = plt.imshow(world_map_biome)
     plt.show()
