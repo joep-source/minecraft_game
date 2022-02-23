@@ -1,5 +1,6 @@
 import numpy as np
 import random
+from matplotlib import colors
 import noise
 
 from block import BiomeBlock
@@ -82,10 +83,23 @@ def world_init(size=1024, seed=1, island=True):
     return world_map
 
 
-def world_map_colors(world_map, size):
-    return np.array(
-        [[world_map[x, y].color() for x in range(size)] for y in range(size)]
+def world_map_colors(world_map, size, border=True):
+    def _gen_border(map2d, size, color):
+        return np.pad(map2d, pad_width=size, mode="constant", constant_values=color)
+
+    world_map = np.array(
+        [[world_map[x, y].biome.value for x in range(size)] for y in range(size)]
     )
+    if border:
+        world_map = _gen_border(world_map, 1, "black")
+        world_map = _gen_border(world_map, 4, "gold")
+        world_map = _gen_border(world_map, 2, "black")
+
+    size = len(world_map)
+    world_map = np.array(
+        [[colors.to_rgb(world_map[x, y]) for x in range(size)] for y in range(size)]
+    )
+    return world_map
 
 
 if __name__ == "__main__":
