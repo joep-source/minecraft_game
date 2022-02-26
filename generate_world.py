@@ -92,7 +92,7 @@ def world_map_colors(world_map, size, border=True):
     )
     if border:
         world_map = _gen_border(world_map, 1, "black")
-        world_map = _gen_border(world_map, 4, "gold")
+        world_map = _gen_border(world_map, 5, "gold")
         world_map = _gen_border(world_map, 2, "black")
 
     size = len(world_map)

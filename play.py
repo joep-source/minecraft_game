@@ -1,9 +1,12 @@
+from functools import lru_cache
+import random
 from typing import List
 from os import path
 from matplotlib import pyplot as plt
 
+# from ursina import *
 from ursina.camera import instance as camera
-from ursina.color import rgb, magenta, azure
+from ursina.color import rgb, magenta, light_gray, color
 from ursina.entity import Entity
 from ursina.main import Ursina
 from ursina.mouse import instance as mouse
@@ -11,10 +14,14 @@ from ursina.prefabs.first_person_controller import FirstPersonController
 from ursina.prefabs.first_person_controller import Button
 from ursina.prefabs.sky import Sky
 from ursina.scene import instance as scene
+from ursina.texture_importer import load_texture
 from ursina.ursinastuff import destroy
+from block import Bioms
 
 from generate_world import world_init, world_map_colors
 from utils import *
+
+sand_block_texture = None
 
 
 class CustomFirstPersonController(FirstPersonController):
@@ -48,13 +55,37 @@ class CustomFirstPersonController(FirstPersonController):
         return False
 
 
+@lru_cache(maxsize=None)
+def get_texture(biome: str):
+    if biome == Bioms.SEA:
+        return load_texture("textures/sea.png")
+    elif biome == Bioms.LAKE:
+        return load_texture("textures/water.png")
+    elif biome == Bioms.DESERT:
+        return load_texture("textures/sand.png")
+    elif biome == Bioms.PLANE:
+        return load_texture("textures/grass2.png")
+    elif biome == Bioms.HILL:
+        return load_texture("textures/grass3.png")
+    elif biome == Bioms.MOUNTAIN:
+        return load_texture("textures/stone1.png")
+    elif biome == Bioms.MOUNTAIN_SNOW:
+        return load_texture("textures/snow.png")
+
+
 class Block(Button):
     destroy = False
     create_position = None
     is_lowest = False
 
     # By setting the parent to scene and the model to 'cube' it becomes a 3d button.
-    def __init__(self, position=(0, 0, 0), colour=None, is_lowest=True, fix_pos=0.5):
+    def __init__(
+        self,
+        position=(0, 0, 0),
+        biome: str = Bioms.HILL,
+        is_lowest=True,
+        fix_pos=0.5,
+    ):
         position = list(position)
         position[X] = position[X] + fix_pos
         position[Z] = position[Z] + fix_pos
@@ -62,9 +93,10 @@ class Block(Button):
             parent=scene,
             position=position,
             model="cube",
-            texture="white_cube",
-            color=rgb(*colour),
-            highlight_color=magenta,
+            texture=get_texture(biome),
+            scale=1,
+            color=color(0, 0, random.uniform(0.95, 1)),
+            highlight_color=light_gray,
         )
         self.is_lowest = is_lowest
 
@@ -105,7 +137,7 @@ class MiniMap:
 
 class UrsinaMC(Ursina):
     blocks: List[Block] = []
-    render_size = 20
+    render_size = 10
     world_size = 512
     seed = 34315
 
@@ -116,7 +148,7 @@ class UrsinaMC(Ursina):
         self.world_create(position_start=position_start)
         self.player = CustomFirstPersonController(position_start=position_start)
         self.player.gravity = 0
-        # self.player.speed = 1
+        self.player.speed = 15
         self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
         Sky()
 
@@ -135,8 +167,8 @@ class UrsinaMC(Ursina):
         x, y, z = pos_to_xyz(position)
         if all([0 <= pos < self.world_size for pos in (x, z)]):
             y = self.world_map2d[x][z].world_height
-            colour = self.world_map2d[x][z].color(multiply=255)
-            self.blocks.append(Block(position=(x, y, z), colour=colour))
+            biome = self.world_map2d[x][z].biome
+            self.blocks.append(Block(position=(x, y, z), biome=biome))
 
     def world_create(self, position_start=[0, 0, 0]):
         for z in range(-self.render_size, self.render_size + 1):
@@ -176,8 +208,9 @@ class UrsinaMC(Ursina):
                     continue
                 if y - block_around.world_height < 2:  # Skip high difference < 2
                     continue
-                colour = block_around.color(multiply=255)
-                self.blocks.append(Block(position=(x, y - 1, z), colour=colour))
+                self.blocks.append(
+                    Block(position=(x, y - 1, z), biome=block_around.biome)
+                )
                 block.is_lowest = False
                 break
         # print(f"low {len(self.blocks) - __blocks_len} blocks")
@@ -209,7 +242,7 @@ class UrsinaMC(Ursina):
             elif block.create_position:
                 new_block = Block(
                     position=block.create_position,
-                    colour=[138, 43, 226],
+                    biome=None,
                     is_lowest=False,
                     fix_pos=False,
                 )
@@ -217,5 +250,6 @@ class UrsinaMC(Ursina):
                 block.create_position = None
 
 
-app = UrsinaMC()
-app.run()
+if __name__ == "__main__":
+    app = UrsinaMC()
+    app.run()
