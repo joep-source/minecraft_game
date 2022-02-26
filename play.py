@@ -18,7 +18,7 @@ from ursina.texture_importer import load_texture
 from ursina.ursinastuff import destroy
 from block import Bioms
 
-from generate_world import world_init, world_map_colors
+from generate_world import random_seed, world_init, world_map_colors
 from utils import *
 
 sand_block_texture = None
@@ -63,12 +63,14 @@ def get_texture(biome: str):
         return load_texture("textures/water.png")
     elif biome == Bioms.DESERT:
         return load_texture("textures/sand.png")
+    elif biome == Bioms.SAVANNA:
+        return load_texture("textures/savanna.png")
     elif biome == Bioms.PLANE:
-        return load_texture("textures/grass2.png")
+        return load_texture("textures/grass.png")
     elif biome == Bioms.HILL:
-        return load_texture("textures/grass3.png")
+        return load_texture("textures/grass_stone.png")
     elif biome == Bioms.MOUNTAIN:
-        return load_texture("textures/stone1.png")
+        return load_texture("textures/stone.png")
     elif biome == Bioms.MOUNTAIN_SNOW:
         return load_texture("textures/snow.png")
 
@@ -139,7 +141,7 @@ class UrsinaMC(Ursina):
     blocks: List[Block] = []
     render_size = 10
     world_size = 512
-    seed = 34315
+    seed = 34315  # random_seed()  # 34315
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -7,6 +7,7 @@ class Bioms(Enum):
     SEA = "blue"
     LAKE = "royalblue"
     DESERT = "wheat"
+    SAVANNA = "yellowgreen"
     PLANE = "limegreen"
     HILL = "darkgreen"
     MOUNTAIN = "silver"
@@ -36,9 +37,11 @@ class BiomeBlock:
         elif height < 0.5:
             if heat > 0.6:
                 self.biome = Bioms.DESERT
+            elif heat > 0.4:
+                self.biome = Bioms.SAVANNA
             else:
                 self.biome = Bioms.PLANE
-        elif height < 0.6:
+        elif height < 0.65:
             self.biome = Bioms.PLANE
         elif height < 0.8:
             self.biome = Bioms.HILL
