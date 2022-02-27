@@ -18,7 +18,7 @@ from ursina.texture_importer import load_texture
 from ursina.ursinastuff import destroy
 from block import Bioms
 
-from generate_world import random_seed, world_init, world_map_colors
+from generate_world import random_seed, generate_world_map, world_map_colors
 from utils import *
 
 sand_block_texture = None
@@ -146,10 +146,10 @@ class UrsinaMC(Ursina):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         position_start = [250.5, 40, 250.5]
-        self.world_map2d = world_init(size=self.world_size, seed=self.seed)
+        self.world_map2d = generate_world_map(size=self.world_size, seed=self.seed)
         self.world_create(position_start=position_start)
         self.player = CustomFirstPersonController(position_start=position_start)
-        self.player.gravity = 0
+        self.player.gravity = 0j
         self.player.speed = 15
         self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
         Sky()
