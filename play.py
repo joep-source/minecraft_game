@@ -30,6 +30,8 @@ class CustomFirstPersonController(FirstPersonController):
     def __init__(self, position_start, **kwargs):
         super().__init__()
         self.position = self.position_previous = position_start
+        self.gravity = 0
+        self.speed = 15
         self.update()
         print(f"Position start {self.position}")
 
@@ -137,52 +139,58 @@ class MiniMap:
         return path.join("maps", f"seed_{self.seed}.png")
 
 
-class UrsinaMC(Ursina):
+class World:
     blocks: List[Block] = []
-    render_size = 10
-    world_size = 512
-    seed = 34315  # random_seed()  # 34315
+    render_size: int = 10
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        position_start = [250.5, 40, 250.5]
-        self.world_map2d = generate_world_map(size=self.world_size, seed=self.seed)
-        self.world_create(position_start=position_start)
-        self.player = CustomFirstPersonController(position_start=position_start)
-        self.player.gravity = 0j
-        self.player.speed = 15
-        self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
-        Sky()
+    def __init__(self, world_map2d, world_size, position_start):
+        self.world_map2d = world_map2d
+        self.world_size = world_size
+        self.blocks_init(position_start)
 
-    def _update(self, task):
-        if self.player.new_position():
-            print(f"Total blocks {len(self.blocks)}")
-            self.world_move_destroy()
-            self.world_move_create()
-            self.world_fill_vertical()
-        self.world_click_handler()
-        return super()._update(task)
+    def update(self, player_position):
+        print(f"Total blocks {len(self.blocks)}")
+        self.move_destroy(player_position)
+        self.move_create(player_position)
+        self.fill_vertical()
 
-    # ========================================================================
-
-    def world_render_block(self, position):
+    def render_block(self, position):
         x, y, z = pos_to_xyz(position)
         if all([0 <= pos < self.world_size for pos in (x, z)]):
             y = self.world_map2d[x][z].world_height
             biome = self.world_map2d[x][z].biome
             self.blocks.append(Block(position=(x, y, z), biome=biome))
 
-    def world_create(self, position_start=[0, 0, 0]):
+    def blocks_init(self, position_start=[0, 0, 0]):
         for z in range(-self.render_size, self.render_size + 1):
             z += position_start[Z]
             for x in range(-self.render_size, self.render_size + 1):
                 x += position_start[X]
-                self.world_render_block([x, 0, z])
-        self.world_fill_vertical()
+                self.render_block([x, 0, z])
+        self.fill_vertical()
 
-    def world_move_destroy(self):
+    def move_create(self, player_position):
         # __blocks_len = len(self.blocks)
-        player_x, _, player_z = pos_to_xyz(self.player.position)
+        blocks_x = set([int(b.position.x) for b in self.blocks])
+        blocks_z = set([int(b.position.z) for b in self.blocks])
+
+        player_x, _, player_z = pos_to_xyz(player_position)
+        size = self.render_size
+        new_x = [n for n in [player_x - size, player_x + size] if n not in blocks_x]
+        new_z = [n for n in [player_z - size, player_z + size] if n not in blocks_z]
+
+        for x in new_x:
+            for z in blocks_z:
+                self.render_block([x, 0, z])
+            blocks_x.add(x)
+        for z in new_z:
+            for x in blocks_x:
+                self.render_block([x, 0, z])
+        # print(f"add {len(self.blocks) - __blocks_len} blocks")
+
+    def move_destroy(self, player_position):
+        # __blocks_len = len(self.blocks)
+        player_x, _, player_z = pos_to_xyz(player_position)
         for block in reversed(self.blocks):
             if (
                 block.position.x < player_x - self.render_size + 0.5
@@ -194,7 +202,7 @@ class UrsinaMC(Ursina):
                 destroy(block)
         # print(f"del {__blocks_len - len(self.blocks)} blocks")
 
-    def world_fill_vertical(self):
+    def fill_vertical(self):
         # __blocks_len = len(self.blocks)
         self.blocks.sort(key=lambda b: b.position.y, reverse=True)
         for block in self.blocks:
@@ -217,26 +225,7 @@ class UrsinaMC(Ursina):
                 break
         # print(f"low {len(self.blocks) - __blocks_len} blocks")
 
-    def world_move_create(self):
-        # __blocks_len = len(self.blocks)
-        blocks_x = set([int(b.position.x) for b in self.blocks])
-        blocks_z = set([int(b.position.z) for b in self.blocks])
-
-        player_x, _, player_z = pos_to_xyz(self.player.position)
-        size = self.render_size
-        new_x = [n for n in [player_x - size, player_x + size] if n not in blocks_x]
-        new_z = [n for n in [player_z - size, player_z + size] if n not in blocks_z]
-
-        for x in new_x:
-            for z in blocks_z:
-                self.world_render_block([x, 0, z])
-            blocks_x.add(x)
-        for z in new_z:
-            for x in blocks_x:
-                self.world_render_block([x, 0, z])
-        # print(f"add {len(self.blocks) - __blocks_len} blocks")
-
-    def world_click_handler(self):
+    def click_handler(self):
         for block in reversed(self.blocks):
             if block.destroy:
                 self.blocks.remove(block)
@@ -250,6 +239,26 @@ class UrsinaMC(Ursina):
                 )
                 self.blocks.append(new_block)
                 block.create_position = None
+
+
+class UrsinaMC(Ursina):
+    seed = 34315  # random_seed()
+    world_size = 512
+    position_start = [250.5, 40, 250.5]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.world_map2d = generate_world_map(size=self.world_size, seed=self.seed)
+        self.world = World(self.world_map2d, self.world_size, self.position_start)
+        self.player = CustomFirstPersonController(position_start=self.position_start)
+        self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
+        Sky()
+
+    def _update(self, task):
+        if self.player.new_position():
+            self.world.update(self.player.position)
+        self.world.click_handler()
+        return super()._update(task)
 
 
 if __name__ == "__main__":
