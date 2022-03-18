@@ -6,9 +6,8 @@ from matplotlib import pyplot as plt
 
 # from ursina import *
 from ursina.camera import instance as camera
-from ursina.color import rgb, magenta, light_gray, color
+from ursina.color import light_gray, color
 from ursina.entity import Entity
-from ursina.main import Ursina
 from ursina.mouse import instance as mouse
 from ursina.prefabs.first_person_controller import FirstPersonController
 from ursina.prefabs.first_person_controller import Button
@@ -16,15 +15,14 @@ from ursina.prefabs.sky import Sky
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
 from ursina.ursinastuff import destroy
-from block import Bioms
 
+from block import Bioms
 from generate_world import random_seed, generate_world_map, world_map_colors
+from main_menu import MainMenuUrsina
 from utils import *
 
-sand_block_texture = None
 
-
-class CustomFirstPersonController(FirstPersonController):
+class Player(FirstPersonController):
     position_previous = None
 
     def __init__(self, position_start, **kwargs):
@@ -35,6 +33,10 @@ class CustomFirstPersonController(FirstPersonController):
         self.update()
         print(f"Position start {self.position}")
 
+    def __del__(self):
+        print("Destruct Player")
+        self.destroy = True
+
     def input(self, key):
         if key == "space":
             self.gravity = 1
@@ -44,8 +46,6 @@ class CustomFirstPersonController(FirstPersonController):
             self.gravity = 0
         if key == "e":
             self.y -= 1
-        if key == "escape":
-            quit()
 
     def new_position(self) -> bool:
         pos_cur = pos_to_xyz(self.position)
@@ -59,22 +59,23 @@ class CustomFirstPersonController(FirstPersonController):
 
 @lru_cache(maxsize=None)
 def get_texture(biome: str):
+    get_file = lambda name: path.join("textures", name)
     if biome == Bioms.SEA:
-        return load_texture("textures/sea.png")
+        return load_texture(get_file("sea.png"))
     elif biome == Bioms.LAKE:
-        return load_texture("textures/water.png")
+        return load_texture(get_file("water.png"))
     elif biome == Bioms.DESERT:
-        return load_texture("textures/sand.png")
+        return load_texture(get_file("sand.png"))
     elif biome == Bioms.SAVANNA:
-        return load_texture("textures/savanna.png")
+        return load_texture(get_file("savanna.png"))
     elif biome == Bioms.PLANE:
-        return load_texture("textures/grass.png")
+        return load_texture(get_file("grass.png"))
     elif biome == Bioms.HILL:
-        return load_texture("textures/grass_stone.png")
+        return load_texture(get_file("grass_stone.png"))
     elif biome == Bioms.MOUNTAIN:
-        return load_texture("textures/stone.png")
+        return load_texture(get_file("stone.png"))
     elif biome == Bioms.MOUNTAIN_SNOW:
-        return load_texture("textures/snow.png")
+        return load_texture(get_file("snow.png"))
 
 
 class Block(Button):
@@ -104,6 +105,9 @@ class Block(Button):
         )
         self.is_lowest = is_lowest
 
+    def __del__(self):
+        self.destroy = True
+
     def input(self, key):
         if self.hovered:
             if key == "left mouse down":
@@ -118,7 +122,11 @@ class MiniMap:
         self.seed = seed
         self.world_size = world_size
         self.save_minimap()
-        self.create_minimap()
+        self.map = self.create_minimap()
+
+    def __del__(self):
+        print("Destruct MiniMap")
+        destroy(self.map)
 
     def create_minimap(self):
         return Entity(
@@ -131,6 +139,7 @@ class MiniMap:
         )
 
     def save_minimap(self):
+        """Save minimap as PNG image"""
         path = self.get_minimap_path()
         img = world_map_colors(self.world_map2d, self.world_size)
         plt.imsave(path, img)
@@ -144,9 +153,20 @@ class World:
     render_size: int = 10
 
     def __init__(self, world_map2d, world_size, position_start):
+        print("Initialize World")
+        print(f"____ len blocks {len(self.blocks)}")
         self.world_map2d = world_map2d
         self.world_size = world_size
         self.blocks_init(position_start)
+        print(f"____ len blocks {len(self.blocks)}")
+
+    def __del__(self):
+        print("Destruct World")
+        print(f"____ len blocks {len(self.blocks)}")
+        for block in self.blocks:
+            del block
+        self.blocks = []
+        print(f"____ len blocks {len(self.blocks)}")
 
     def update(self, player_position):
         print(f"Total blocks {len(self.blocks)}")
@@ -241,23 +261,43 @@ class World:
                 block.create_position = None
 
 
-class UrsinaMC(Ursina):
-    seed = 34315  # random_seed()
-    world_size = 512
-    position_start = [250.5, 40, 250.5]
+class UrsinaMC(MainMenuUrsina):
+    def __init__(self):
+        super().__init__()
+        self.game_active = False
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.world_map2d = generate_world_map(size=self.world_size, seed=self.seed)
-        self.world = World(self.world_map2d, self.world_size, self.position_start)
-        self.player = CustomFirstPersonController(position_start=self.position_start)
-        self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
-        Sky()
+    def start_game(self, world_size=512):
+        super().start_game()
+        seed = 34315  # random_seed()
+        position_start = [250.5, 40, 250.5]
+        self.world_map2d = generate_world_map(size=world_size, seed=seed)
+        self.world = World(self.world_map2d, world_size, position_start)
+        self.player = Player(position_start=position_start)
+        self.minimap = MiniMap(self.world_map2d, seed, world_size)
+        self.game_background = Sky()
+        self.game_active = True
+
+    def quit_game(self):
+        print("Quiting game")
+        self.game_active = False
+        del self.world_map2d
+        del self.world
+        del self.player
+        del self.minimap
+        destroy(self.game_background)
+        del self.game_background
+        super().quit_game()
+
+    def input(self, key):
+        if key == "escape":
+            self.quit_game()
+        super().input(key)
 
     def _update(self, task):
-        if self.player.new_position():
-            self.world.update(self.player.position)
-        self.world.click_handler()
+        if self.game_active:
+            if self.player.new_position():
+                self.world.update(self.player.position)
+            self.world.click_handler()
         return super()._update(task)
 
 
