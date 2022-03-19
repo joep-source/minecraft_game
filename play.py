@@ -1,5 +1,6 @@
 from functools import lru_cache
 import random
+import sys
 from typing import List
 from os import path
 from matplotlib import pyplot as plt
@@ -33,8 +34,8 @@ class Player(FirstPersonController):
         self.update()
         print(f"Position start {self.position}")
 
-    def __del__(self):
-        print("Destruct Player")
+    def delete(self):
+        print("Delete Player")
         self.destroy = True
 
     def input(self, key):
@@ -105,7 +106,8 @@ class Block(Button):
         )
         self.is_lowest = is_lowest
 
-    def __del__(self):
+    def delete(self):
+        # print("Delete Block")
         self.destroy = True
 
     def input(self, key):
@@ -113,7 +115,7 @@ class Block(Button):
             if key == "left mouse down":
                 self.create_position = self.position + mouse.normal
             if key == "right mouse down":
-                self.destroy = True
+                self.delete()
 
 
 class MiniMap:
@@ -124,8 +126,8 @@ class MiniMap:
         self.save_minimap()
         self.map = self.create_minimap()
 
-    def __del__(self):
-        print("Destruct MiniMap")
+    def delete(self):
+        print("Delete MiniMap")
         destroy(self.map)
 
     def create_minimap(self):
@@ -149,24 +151,20 @@ class MiniMap:
 
 
 class World:
-    blocks: List[Block] = []
+    blocks: List[Block] = list()
     render_size: int = 10
 
     def __init__(self, world_map2d, world_size, position_start):
         print("Initialize World")
-        print(f"____ len blocks {len(self.blocks)}")
         self.world_map2d = world_map2d
         self.world_size = world_size
         self.blocks_init(position_start)
-        print(f"____ len blocks {len(self.blocks)}")
 
-    def __del__(self):
-        print("Destruct World")
-        print(f"____ len blocks {len(self.blocks)}")
+    def delete(self):
+        print("Delete World")
         for block in self.blocks:
-            del block
-        self.blocks = []
-        print(f"____ len blocks {len(self.blocks)}")
+            block.delete()
+        self.blocks = list()
 
     def update(self, player_position):
         print(f"Total blocks {len(self.blocks)}")
@@ -278,14 +276,19 @@ class UrsinaMC(MainMenuUrsina):
         self.game_active = True
 
     def quit_game(self):
+        if not self.game_active:
+            sys.exit()
         print("Quiting game")
         self.game_active = False
-        del self.world_map2d
-        del self.world
-        del self.player
-        del self.minimap
+        self.world_map2d = None
+        self.world.delete()
+        self.world = None
+        self.player.delete()
+        self.player = None
+        self.minimap.delete()
+        self.minimap = None
         destroy(self.game_background)
-        del self.game_background
+        self.game_background = None
         super().quit_game()
 
     def input(self, key):
