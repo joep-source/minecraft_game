@@ -15,7 +15,7 @@ from ursina.prefabs.first_person_controller import Button
 from ursina.prefabs.sky import Sky
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
-from ursina.ursinastuff import destroy
+from ursina.ursinastuff import destroy, invoke
 
 from block import Bioms
 from generate_world import random_seed, generate_world_map, world_map_colors
@@ -26,36 +26,50 @@ from utils import *
 class Player(FirstPersonController):
     position_previous = None
 
-    def __init__(self, position_start, **kwargs):
+    def __init__(self, position_start, enable_fly=False, speed=5):
         super().__init__()
+        self.enable_fly = enable_fly
+        self.speed = speed
+        position_start[Y] += 2
+        self.position_start = position_start.copy()
+        position_start[Y] = -10
         self.position = self.position_previous = position_start
-        self.gravity = 0
-        self.speed = 15
-        self.update()
-        print(f"Position start {self.position}")
+        invoke(setattr, self, "position", self.position_start, delay=5)
+        print(f"Player position start {self.position_start}")
 
     def delete(self):
         print("Delete Player")
+        self.enabled = False
         self.destroy = True
 
     def input(self, key):
         if key == "space":
-            self.gravity = 1
             self.jump()
-        if key == "q":
-            self.y += 3
-            self.gravity = 0
-        if key == "e":
-            self.y -= 1
+            self.set_fly(on=False)
+        if key == "i":
+            print(f"Player position is {self.position}, {self.speed=}")
+        if self.enable_fly:
+            if key == "e":
+                self.set_fly(on=True)
+                self.y += 1
+            if key == "q" and self.fly:
+                self.y -= 1
 
-    def new_position(self) -> bool:
+    def check_new_position(self) -> bool:
         pos_cur = pos_to_xyz(self.position)
         pos_old = pos_to_xyz(self.position_previous)
         if (pos_cur[X], pos_cur[Z]) != (pos_old[X], pos_old[Z]):
-            # print(f"Position new {pos_to_xyz(self.position)}")
+            print(f"Position new {pos_to_xyz(self.position)}")
             self.position_previous = self.position
             return True
         return False
+
+    def set_fly(self, on: bool):
+        self.fly = on
+        if self.fly:
+            self.gravity = 0
+        else:
+            self.gravity = 1
 
 
 @lru_cache(maxsize=None)
@@ -265,15 +279,16 @@ class UrsinaMC(MainMenuUrsina):
         self.game_active = False
 
     def start_game(self, world_size=512):
-        super().start_game()
         seed = 34315  # random_seed()
-        position_start = [250.5, 40, 250.5]
         self.world_map2d = generate_world_map(size=world_size, seed=seed)
-        self.world = World(self.world_map2d, world_size, position_start)
-        self.player = Player(position_start=position_start)
+        start_position = self.random_start_position(world_size=world_size)
+        self.world = World(self.world_map2d, world_size, start_position)
         self.minimap = MiniMap(self.world_map2d, seed, world_size)
         self.game_background = Sky()
+        self.player = Player(position_start=start_position, enable_fly=True)
+        print("Game active")
         self.game_active = True
+        super().start_game()
 
     def quit_game(self):
         if not self.game_active:
@@ -291,6 +306,16 @@ class UrsinaMC(MainMenuUrsina):
         self.game_background = None
         super().quit_game()
 
+    def random_start_position(self, world_size: int):
+        while True:
+            x = random.randint(1, world_size - 1)
+            z = random.randint(1, world_size - 1)
+            biome_block = self.world_map2d[x][z]
+            position = [x + 0.5, biome_block.world_height, z + 0.5]
+            print(f"Start position {position=}")
+            if biome_block.biome not in [Bioms.SEA, Bioms.LAKE]:
+                return position
+
     def input(self, key):
         if key == "escape":
             self.quit_game()
@@ -298,7 +323,7 @@ class UrsinaMC(MainMenuUrsina):
 
     def _update(self, task):
         if self.game_active:
-            if self.player.new_position():
+            if self.player.check_new_position():
                 self.world.update(self.player.position)
             self.world.click_handler()
         return super()._update(task)
