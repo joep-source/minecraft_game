@@ -1,6 +1,7 @@
 from typing import List, Tuple
-import numpy as np
 import random
+
+import numpy as np
 from matplotlib import colors
 import noise
 

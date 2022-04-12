@@ -3,9 +3,8 @@ import random
 import sys
 from typing import List
 from os import path
-from matplotlib import pyplot as plt
 
-# from ursina import *
+from matplotlib import pyplot as plt
 from ursina.camera import instance as camera
 from ursina.color import light_gray, color
 from ursina.entity import Entity
@@ -16,6 +15,8 @@ from ursina.prefabs.sky import Sky
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
 from ursina.ursinastuff import destroy, invoke
+
+# from ursina import *
 
 from block import Bioms
 from generate_world import random_seed, generate_world_map, world_map_colors
