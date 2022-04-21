@@ -7,6 +7,8 @@ import noise
 
 from block import BiomeBlock
 
+Map2D = np.ndarray  # format List[List[BiomeBlockType]] as numpy array
+
 NOISE_HEIGHT = {
     "octaves": 4,
     "persistence": 0.2,
@@ -25,10 +27,8 @@ NOISE_HEAT = {
     "lacunarity": 2,
 }
 
-Map2D = List[List[BiomeBlock]]  # List as numpy array
 
-
-def normalize(data):
+def normalize(data: np.ndarray) -> np.ndarray:
     return (data - np.min(data)) / (np.max(data) - np.min(data))
 
 
@@ -98,7 +98,7 @@ def world_map_colors(
 
     block_colors = [colors.to_rgb(str(block)) for block in np.nditer(world_map)]
     world_map_colors = np.array(block_colors).reshape(world_map.shape + (3,))
-    return world_map_colors
+    return world_map_colors.tolist()
 
 
 if __name__ == "__main__":

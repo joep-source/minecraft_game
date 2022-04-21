@@ -3,7 +3,7 @@ import math
 from matplotlib import colors
 
 
-class Bioms(Enum):
+class Bioms(str, Enum):
     SEA = "blue"
     LAKE = "royalblue"
     DESERT = "wheat"

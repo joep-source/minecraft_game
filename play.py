@@ -25,7 +25,8 @@ from utils import *
 
 
 class Player(FirstPersonController):
-    position_previous = None
+    position: List
+    position_previous: List
 
     def __init__(self, position_start, enable_fly=False, speed=5):
         super().__init__()

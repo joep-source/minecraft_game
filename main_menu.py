@@ -1,6 +1,18 @@
 import string
+import sys
 
-from ursina import *
+from ursina.audio import Audio
+from ursina.camera import instance as camera
+
+from ursina import color
+from ursina.entity import Entity
+from ursina.main import Ursina
+from ursina.prefabs.animator import Animator
+from ursina.prefabs.first_person_controller import Button
+from ursina.prefabs.slider import Slider
+from ursina.sequence import Wait, Func, Sequence
+
+# from ursina import *
 
 
 class MenuButton(Button):
