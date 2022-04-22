@@ -8,6 +8,7 @@ matplotlib = "*"
 numpy = "*"
 ursina = "*"
 noise = "==1.2.1"
+mypy = "*"
 
 [dev-packages]
 black = "*"

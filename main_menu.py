@@ -1,13 +1,23 @@
 import string
+import sys
 
-from ursina import *
+from ursina.audio import Audio
+from ursina.camera import instance as camera
+
+from ursina import color
+from ursina.entity import Entity
+from ursina.main import Ursina
+from ursina.prefabs.animator import Animator
+from ursina.prefabs.first_person_controller import Button
+from ursina.prefabs.slider import Slider
+from ursina.sequence import Wait, Func, Sequence
+
+# from ursina import *
 
 
 class MenuButton(Button):
     def __init__(self, text="", **kwargs):
-        super().__init__(
-            text, scale=(0.25, 0.075), highlight_color=color.azure, **kwargs
-        )
+        super().__init__(text, scale=(0.25, 0.075), highlight_color=color.azure, **kwargs)
 
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -90,9 +100,7 @@ class MainMenuUrsina(Ursina):
         self.background.enabled = True
 
     def input(self, key):
-        if __name__ == "__main__" and key in ["escape", "space"] + list(
-            string.ascii_lowercase
-        ):
+        if __name__ == "__main__" and key in ["escape", "space"] + list(string.ascii_lowercase):
             self.quit_game()
         super().input(key)
 

@@ -5,6 +5,7 @@ from typing import List
 from os import path
 
 from matplotlib import pyplot as plt
+import numpy as np
 from ursina.camera import instance as camera
 from ursina.color import light_gray, color
 from ursina.entity import Entity
@@ -25,7 +26,8 @@ from utils import *
 
 
 class Player(FirstPersonController):
-    position_previous = None
+    position: List
+    position_previous: List
 
     def __init__(self, position_start, enable_fly=False, speed=5):
         super().__init__()
@@ -158,7 +160,7 @@ class MiniMap:
     def save_minimap(self):
         """Save minimap as PNG image"""
         path = self.get_minimap_path()
-        img = world_map_colors(self.world_map2d, self.world_size)
+        img = np.array(world_map_colors(self.world_map2d))
         plt.imsave(path, img)
 
     def get_minimap_path(self):
@@ -251,9 +253,7 @@ class World:
                     continue
                 if y - block_around.world_height < 2:  # Skip high difference < 2
                     continue
-                self.blocks.append(
-                    Block(position=(x, y - 1, z), biome=block_around.biome)
-                )
+                self.blocks.append(Block(position=(x, y - 1, z), biome=block_around.biome))
                 block.is_lowest = False
                 break
         # print(f"low {len(self.blocks) - __blocks_len} blocks")

@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Any, List, Tuple
 import random
 
 import numpy as np
@@ -6,6 +6,8 @@ from matplotlib import colors
 import noise
 
 from block import BiomeBlock
+
+Map2D = Any  # format List[List[BiomeBlockType]] as numpy array
 
 NOISE_HEIGHT = {
     "octaves": 4,
@@ -25,10 +27,8 @@ NOISE_HEAT = {
     "lacunarity": 2,
 }
 
-Map2D = List[List[BiomeBlock]]  # List as numpy array
 
-
-def normalize(data):
+def normalize(data: np.ndarray) -> np.ndarray:
     return (data - np.min(data)) / (np.max(data) - np.min(data))
 
 
@@ -82,9 +82,7 @@ def generate_world_map(size: int, seed: int = 1, island: bool = True) -> Map2D:
     return world_map
 
 
-def world_map_colors(
-    world_map: Map2D, border=True
-) -> List[List[Tuple[float, float, float]]]:
+def world_map_colors(world_map: Map2D, border=True) -> List[List[Tuple[float, float, float]]]:
     def _gen_border(map2d, size, color):
         return np.pad(map2d, pad_width=size, mode="constant", constant_values=color)
 
@@ -98,7 +96,7 @@ def world_map_colors(
 
     block_colors = [colors.to_rgb(str(block)) for block in np.nditer(world_map)]
     world_map_colors = np.array(block_colors).reshape(world_map.shape + (3,))
-    return world_map_colors
+    return world_map_colors.tolist()
 
 
 if __name__ == "__main__":
