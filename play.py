@@ -22,7 +22,7 @@ from ursina.ursinastuff import destroy, invoke
 from block import Biomes
 from generate_world import random_seed, generate_world_map, world_map_colors
 from main_menu import MainMenuUrsina
-from utils import *
+from utils import X, Y, Z, pos_to_xyz
 
 
 class Player(FirstPersonController):
