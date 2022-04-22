@@ -19,7 +19,7 @@ from ursina.ursinastuff import destroy, invoke
 
 # from ursina import *
 
-from block import Bioms
+from block import Biomes
 from generate_world import random_seed, generate_world_map, world_map_colors
 from main_menu import MainMenuUrsina
 from utils import *
@@ -78,21 +78,21 @@ class Player(FirstPersonController):
 @lru_cache(maxsize=None)
 def get_texture(biome: str):
     get_file = lambda name: path.join("textures", name)
-    if biome == Bioms.SEA:
+    if biome == Biomes.SEA:
         return load_texture(get_file("sea.png"))
-    elif biome == Bioms.LAKE:
+    elif biome == Biomes.LAKE:
         return load_texture(get_file("water.png"))
-    elif biome == Bioms.DESERT:
+    elif biome == Biomes.DESERT:
         return load_texture(get_file("sand.png"))
-    elif biome == Bioms.SAVANNA:
+    elif biome == Biomes.SAVANNA:
         return load_texture(get_file("savanna.png"))
-    elif biome == Bioms.PLANE:
+    elif biome == Biomes.PLANE:
         return load_texture(get_file("grass.png"))
-    elif biome == Bioms.HILL:
+    elif biome == Biomes.HILL:
         return load_texture(get_file("grass_stone.png"))
-    elif biome == Bioms.MOUNTAIN:
+    elif biome == Biomes.MOUNTAIN:
         return load_texture(get_file("stone.png"))
-    elif biome == Bioms.MOUNTAIN_SNOW:
+    elif biome == Biomes.MOUNTAIN_SNOW:
         return load_texture(get_file("snow.png"))
 
 
@@ -105,7 +105,7 @@ class Block(Button):
     def __init__(
         self,
         position=(0, 0, 0),
-        biome: str = Bioms.HILL,
+        biome: str = Biomes.HILL,
         is_lowest=True,
         fix_pos=0.5,
     ):
@@ -314,7 +314,7 @@ class UrsinaMC(MainMenuUrsina):
             biome_block = self.world_map2d[x][z]
             position = [x + 0.5, biome_block.world_height, z + 0.5]
             print(f"Start position {position=}")
-            if biome_block.biome not in [Bioms.SEA, Bioms.LAKE]:
+            if biome_block.biome not in [Biomes.SEA, Biomes.LAKE]:
                 return position
 
     def input(self, key):

@@ -9,6 +9,7 @@ numpy = "*"
 ursina = "*"
 noise = "==1.2.1"
 mypy = "*"
+pytest = "*"
 
 [dev-packages]
 black = "*"
