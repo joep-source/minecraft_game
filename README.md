@@ -1,13 +1,9 @@
-
-<div align="center">
 # Ursina Minecraft Game
 
-![Actions Status](https://github.com/joep-source/minecraft_game/actions/workflows/python-app/badge.svg)
+[![Actions Status](https://github.com/joep-source/minecraft_game/workflows/python-app/badge.svg)](https://github.com/joep-source/minecraft_game/actions)
 [![License][license-badge]][license]
 
-A minecraft game with random generated island maps, built with Ursina Engine. 
-
-</div>
+A Minecraft-based game with random generated island maps, built with Ursina Engine. 
 
 
 ## Getting started
