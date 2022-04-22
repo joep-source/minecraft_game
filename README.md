@@ -1,7 +1,7 @@
 # Ursina Minecraft Game
 
-[![Actions Status](https://github.com/joep-source/minecraft_game/workflows/python-app/badge.svg)](https://github.com/joep-source/minecraft_game/actions)
-[![License][license-badge]][license]
+[![CI](https://github.com/joep-source/minecraft_game/actions/workflows/python-app.yml/badge.svg?branch=main)](https://github.com/joep-source/minecraft_game/actions/workflows/python-app.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Minecraft-based game with random generated island maps, built with Ursina Engine. 
 
@@ -16,3 +16,7 @@ Todo...
   Solutions:
     - `sudo apt-get install python3-tk`
     - `pip install pyqt5`
+
+
+## License
+MIT
