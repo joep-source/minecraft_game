@@ -17,9 +17,7 @@ from ursina.sequence import Wait, Func, Sequence
 
 class MenuButton(Button):
     def __init__(self, text="", **kwargs):
-        super().__init__(
-            text, scale=(0.25, 0.075), highlight_color=color.azure, **kwargs
-        )
+        super().__init__(text, scale=(0.25, 0.075), highlight_color=color.azure, **kwargs)
 
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -102,9 +100,7 @@ class MainMenuUrsina(Ursina):
         self.background.enabled = True
 
     def input(self, key):
-        if __name__ == "__main__" and key in ["escape", "space"] + list(
-            string.ascii_lowercase
-        ):
+        if __name__ == "__main__" and key in ["escape", "space"] + list(string.ascii_lowercase):
             self.quit_game()
         super().input(key)
 
