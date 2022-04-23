@@ -34,7 +34,6 @@ def normalize(data: np.ndarray) -> np.ndarray:
 
 def random_seed(between=[10000, 99999]) -> int:
     seed = random.randint(between[0], between[1])
-    print(f"seed {seed}")
     return seed
 
 

@@ -29,7 +29,7 @@ class Player(FirstPersonController):
     position: List
     position_previous: List
 
-    def __init__(self, position_start, enable_fly=False, speed=5):
+    def __init__(self, position_start, speed, enable_fly=False):
         super().__init__()
         self.enable_fly = enable_fly
         self.speed = speed
@@ -279,14 +279,17 @@ class UrsinaMC(MainMenuUrsina):
         super().__init__()
         self.game_active = False
 
-    def start_game(self, world_size=512):
-        seed = 34315  # random_seed()
+    def start_game(self, **kwargs):
+        seed = kwargs.get("seed", random_seed())
+        world_size = kwargs.get("world_size", 512)
+        speed = kwargs.get("player_speed", 5)
+        print(f"Settings: {seed=}, {world_size=}, {speed=}")
         self.world_map2d = generate_world_map(size=world_size, seed=seed)
         start_position = self.random_start_position(world_size=world_size)
         self.world = World(self.world_map2d, world_size, start_position)
         self.minimap = MiniMap(self.world_map2d, seed, world_size)
         self.game_background = Sky()
-        self.player = Player(position_start=start_position, enable_fly=True)
+        self.player = Player(position_start=start_position, speed=speed, enable_fly=True)
         print("Game active")
         self.game_active = True
         super().start_game()

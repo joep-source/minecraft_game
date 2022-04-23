@@ -44,54 +44,53 @@ class MainMenuUrsina(Ursina):
 
     def setup_main_menu_buttons(self):
         self.main_menu.buttons = [
-            MenuButton("Start game", on_click=self.start_game),
+            MenuButton("Classic", on_click=Func(self.start_game, seed=34315)),
+            MenuButton("Random island", on_click=self.start_game),
             MenuButton(
-                "Custom game",
-                on_click=Func(setattr, self.state_handler, "state", "custom_menu"),
+                "Custom game", on_click=Func(setattr, self.state_handler, "state", "custom_menu")
             ),
             MenuButton("Quit", on_click=Sequence(Wait(0.01), Func(sys.exit))),
         ]
         for i, button in enumerate(self.main_menu.buttons):
             button.parent = self.main_menu
+            button.color = color.black66
             button.y = -i * self.button_spacing
 
     def setup_custom_menu_buttons(self):
-        def set_volume_multiplier():
-            Audio.volume_multiplier = volume_slider.value
-
-        volume_slider = Slider(
-            0,
-            1,
-            default=Audio.volume_multiplier,
-            step=0.1,
-            text="Master Volume:",
-            parent=self.custom_menu,
-            x=-0.25,
+        speed_slider = Slider(
+            1, 20, default=5, step=1, text="Player speed", parent=self.custom_menu
         )
-        volume_slider.on_value_changed = set_volume_multiplier
-
-        items = [volume_slider]
-
-        self.custom_menu.back_button = MenuButton(
-            parent=self.custom_menu,
-            text="Back",
-            y=((-len(items) - 2) * self.button_spacing),
-            x=-0.25,
-            origin_x=-0.5,
-            on_click=Func(setattr, self.state_handler, "state", "main_menu"),
+        size_slider = Slider(
+            50, 5000, default=500, step=5, text="World size:", parent=self.custom_menu
         )
+        self.custom_settings = {
+            "player_speed": speed_slider,
+            "world_size": size_slider,
+        }
 
-    def set_background(self):
-        self.background = Entity(
-            model="quad",
-            texture="shore",
-            parent=self.menu_parent.parent,
-            scale=(camera.aspect_ratio, 1),
-            color=color.white,
-            z=1,
-        )
+        self.custom_menu.buttons = [
+            MenuButton(
+                parent=self.custom_menu,
+                text="Start",
+                on_click=self.start_custom_game,
+            ),
+            MenuButton(
+                parent=self.custom_menu,
+                text="Back",
+                on_click=Func(setattr, self.state_handler, "state", "main_menu"),
+            ),
+        ]
 
-    def start_game(self):
+        for i, entity in enumerate(list(self.custom_settings.values()) + self.custom_menu.buttons):
+            entity.y = -i * self.button_spacing
+
+    def start_custom_game(self):
+        settings = self.custom_settings.copy()
+        for key, entity in settings.items():
+            settings[key] = entity.value
+        self.start_game(**settings)
+
+    def start_game(self, **kwargs):
         self.menu_parent.enabled = False
         self.background.enabled = False
 
@@ -103,6 +102,16 @@ class MainMenuUrsina(Ursina):
         if __name__ == "__main__" and key in ["escape", "space"] + list(string.ascii_lowercase):
             self.quit_game()
         super().input(key)
+
+    def set_background(self):
+        self.background = Entity(
+            model="quad",
+            texture="shore",
+            parent=self.menu_parent.parent,
+            scale=(camera.aspect_ratio, 1),
+            color=color.white,
+            z=1,
+        )
 
 
 if __name__ == "__main__":
