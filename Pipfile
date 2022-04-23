@@ -8,12 +8,13 @@ matplotlib = "*"
 numpy = "*"
 ursina = "*"
 noise = "==1.2.1"
-mypy = "*"
-pytest = "*"
 
 [dev-packages]
 black = "*"
 ipykernel = "*"
+isort = "*"
+mypy = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.8"
