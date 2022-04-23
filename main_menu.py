@@ -1,10 +1,8 @@
 import string
 import sys
 
-from ursina.audio import Audio
-from ursina.camera import instance as camera
-
 from ursina import color
+from ursina.camera import instance as camera
 from ursina.entity import Entity
 from ursina.main import Ursina
 from ursina.prefabs.animator import Animator
@@ -12,7 +10,7 @@ from ursina.prefabs.first_person_controller import Button
 from ursina.prefabs.slider import Slider
 from ursina.sequence import Wait, Func, Sequence
 
-# from ursina import *
+import conf
 
 
 class MenuButton(Button):
@@ -44,7 +42,7 @@ class MainMenuUrsina(Ursina):
 
     def setup_main_menu_buttons(self):
         self.main_menu.buttons = [
-            MenuButton("Classic", on_click=Func(self.start_game, seed=34315)),
+            MenuButton("Classic", on_click=Func(self.start_game, seed=conf.ISLAND_SEED_CLASSIC)),
             MenuButton("Random island", on_click=self.start_game),
             MenuButton(
                 "Custom game", on_click=Func(setattr, self.state_handler, "state", "custom_menu")
@@ -58,10 +56,10 @@ class MainMenuUrsina(Ursina):
 
     def setup_custom_menu_buttons(self):
         speed_slider = Slider(
-            1, 20, default=5, step=1, text="Player speed", parent=self.custom_menu
+            1, 20, default=conf.PLAYER_SPEED, step=1, text="Player speed", parent=self.custom_menu
         )
         size_slider = Slider(
-            50, 5000, default=500, step=5, text="World size:", parent=self.custom_menu
+            50, 5000, default=conf.WORLD_SIZE, step=5, text="World size:", parent=self.custom_menu
         )
         self.custom_settings = {
             "player_speed": speed_slider,

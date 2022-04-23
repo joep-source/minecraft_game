@@ -19,6 +19,7 @@ from ursina.ursinastuff import destroy, invoke
 
 # from ursina import *
 
+import conf
 from block import Biomes
 from generate_world import random_seed, generate_world_map, world_map_colors
 from main_menu import MainMenuUrsina
@@ -169,7 +170,7 @@ class MiniMap:
 
 class World:
     blocks: List[Block] = list()
-    render_size: int = 10
+    render_size: int = conf.BLOCKS_RENDER_DISTANCE
 
     def __init__(self, world_map2d, world_size, position_start):
         print("Initialize World")
@@ -281,17 +282,19 @@ class UrsinaMC(MainMenuUrsina):
 
     def start_game(self, **kwargs):
         seed = kwargs.get("seed", random_seed())
-        world_size = kwargs.get("world_size", 512)
-        speed = kwargs.get("player_speed", 5)
+        world_size = kwargs.get("world_size", conf.WORLD_SIZE)
+        speed = kwargs.get("player_speed", conf.PLAYER_SPEED)
         print(f"Settings: {seed=}, {world_size=}, {speed=}")
+
         self.world_map2d = generate_world_map(size=world_size, seed=seed)
         start_position = self.random_start_position(world_size=world_size)
         self.world = World(self.world_map2d, world_size, start_position)
         self.minimap = MiniMap(self.world_map2d, seed, world_size)
         self.game_background = Sky()
         self.player = Player(position_start=start_position, speed=speed, enable_fly=True)
-        print("Game active")
+
         self.game_active = True
+        print("Game active")
         super().start_game()
 
     def quit_game(self):
