@@ -1,29 +1,28 @@
-from functools import lru_cache
 import random
 import sys
-from typing import List
+from functools import lru_cache
 from os import path
+from typing import List
 
-from matplotlib import pyplot as plt
 import numpy as np
+from matplotlib import pyplot as plt
 from ursina.camera import instance as camera
-from ursina.color import light_gray, color
+from ursina.color import color, light_gray
 from ursina.entity import Entity
 from ursina.mouse import instance as mouse
-from ursina.prefabs.first_person_controller import FirstPersonController
-from ursina.prefabs.first_person_controller import Button
+from ursina.prefabs.first_person_controller import Button, FirstPersonController
 from ursina.prefabs.sky import Sky
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
 from ursina.ursinastuff import destroy, invoke
 
-# from ursina import *
-
 import conf
 from block import Biomes
-from generate_world import random_seed, generate_world_map, world_map_colors
+from generate_world import generate_world_map, random_seed, world_map_colors
 from main_menu import MainMenuUrsina
 from utils import X, Y, Z, pos_to_xyz
+
+# from ursina import *
 
 
 class Player(FirstPersonController):

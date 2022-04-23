@@ -1,5 +1,6 @@
-from enum import Enum
 import math
+from enum import Enum
+
 from matplotlib import colors
 
 

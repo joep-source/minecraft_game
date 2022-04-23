@@ -8,7 +8,7 @@ from ursina.main import Ursina
 from ursina.prefabs.animator import Animator
 from ursina.prefabs.first_person_controller import Button
 from ursina.prefabs.slider import Slider
-from ursina.sequence import Wait, Func, Sequence
+from ursina.sequence import Func, Sequence, Wait
 
 import conf
 

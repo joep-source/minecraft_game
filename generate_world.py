@@ -1,9 +1,9 @@
-from typing import Any, List, Tuple
 import random
+from typing import Any, List, Tuple
 
+import noise
 import numpy as np
 from matplotlib import colors
-import noise
 
 from block import BiomeBlock
 

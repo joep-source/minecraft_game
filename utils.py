@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import List, Tuple
 
 X = 0
 Y = 1
