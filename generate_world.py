@@ -6,6 +6,7 @@ import numpy as np
 from matplotlib import colors
 
 from block import BiomeBlock
+from utils import timeit
 
 Map2D = Any  # format List[List[BiomeBlockType]] as numpy array
 
@@ -37,6 +38,7 @@ def random_seed(between=[10000, 99999]) -> int:
     return seed
 
 
+@timeit
 def create_circulair_map_mask(size: int) -> Map2D:
     """Map with rounded edges"""
     x, y = np.meshgrid(np.linspace(-1, 1, size), np.linspace(-1, 1, size))
@@ -49,12 +51,14 @@ def create_circulair_map_mask(size: int) -> Map2D:
     return mask
 
 
+@timeit
 def combine_maps(map1: Map2D, map2: Map2D) -> Map2D:
     map1 += map2
     map1 = np.maximum(map1, 0, map1)  # Set values below 0 to 0
     return normalize(np.array(map1))
 
 
+@timeit
 def to_blocks_map(heigth_map: Map2D, heat_map: Map2D) -> Map2D:
     blocks = [
         BiomeBlock(height=heigth, heat=heat)
@@ -63,20 +67,22 @@ def to_blocks_map(heigth_map: Map2D, heat_map: Map2D) -> Map2D:
     return np.array(blocks).reshape(heigth_map.shape)
 
 
+@timeit
+def generate_noise_map(shape: Tuple, seed: int, **params):
+    def _gen_noise(x, y, **params):
+        return noise.snoise3(x / shape[0], y / shape[1], z=seed, **params)
+
+    noises = [_gen_noise(y, x, **params) for y, x in np.ndindex(shape)]
+    return normalize(np.array(noises).reshape(shape))
+
+
 def generate_world_map(size: int, seed: int = 1, island: bool = True) -> Map2D:
-    def _gen_noise(x, y, seed, **params):
-        return noise.snoise3(x / size, y / size, z=seed, **params)
-
-    def _gen_noise_map(shape, seed, **params):
-        noises = [_gen_noise(y, x, seed, **params) for y, x in np.ndindex(shape)]
-        return normalize(np.array(noises).reshape(world_shape))
-
     world_shape = (size, size)
-    noise_heigt = NOISE_HEIGHT_ISLAND if island else NOISE_HEIGHT
-    heigth_map = _gen_noise_map(world_shape, seed, **noise_heigt)
+    noise_height = NOISE_HEIGHT_ISLAND if island else NOISE_HEIGHT
+    heigth_map = generate_noise_map(world_shape, seed, **noise_height)
     if island:
         heigth_map = combine_maps(heigth_map, create_circulair_map_mask(size))
-    heat_map = _gen_noise_map(world_shape, seed, **NOISE_HEAT)
+    heat_map = generate_noise_map(world_shape, seed, **NOISE_HEAT)
     world_map = to_blocks_map(heigth_map, heat_map)
     return world_map
 

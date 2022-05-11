@@ -1,3 +1,4 @@
+import logging
 import random
 import sys
 from functools import lru_cache
@@ -20,9 +21,12 @@ import conf
 from block import Biomes
 from generate_world import generate_world_map, random_seed, world_map_colors
 from main_menu import MainMenuUrsina
-from utils import X, Y, Z, pos_to_xyz
+from utils import X, Y, Z, pos_to_xyz, setup_logger, timeit
 
 # from ursina import *
+
+
+logger = logging.getLogger(conf.LOGGER_NAME)
 
 
 class Player(FirstPersonController):
@@ -38,10 +42,10 @@ class Player(FirstPersonController):
         position_start[Y] = -10
         self.position = self.position_previous = position_start
         invoke(setattr, self, "position", self.position_start, delay=5)
-        print(f"Player position start {self.position_start}")
+        logger.info(f"Player position start {self.position_start}")
 
     def delete(self):
-        print("Delete Player")
+        logger.info("Delete Player")
         self.enabled = False
         self.destroy = True
 
@@ -50,7 +54,7 @@ class Player(FirstPersonController):
             self.jump()
             self.set_fly(on=False)
         if key == "i":
-            print(f"Player position is {self.position}, {self.speed=}")
+            logger.debug(f"Player position is {self.position}, {self.speed=}")
         if self.enable_fly:
             if key == "e":
                 self.set_fly(on=True)
@@ -62,7 +66,7 @@ class Player(FirstPersonController):
         pos_cur = pos_to_xyz(self.position)
         pos_old = pos_to_xyz(self.position_previous)
         if (pos_cur[X], pos_cur[Z]) != (pos_old[X], pos_old[Z]):
-            print(f"Position new {pos_to_xyz(self.position)}")
+            logger.info(f"Player position new {pos_to_xyz(self.position)}")
             self.position_previous = self.position
             return True
         return False
@@ -124,7 +128,6 @@ class Block(Button):
         self.is_lowest = is_lowest
 
     def delete(self):
-        # print("Delete Block")
         self.destroy = True
 
     def input(self, key):
@@ -144,7 +147,7 @@ class MiniMap:
         self.map = self.create_minimap()
 
     def delete(self):
-        print("Delete MiniMap")
+        logger.info("Delete MiniMap")
         destroy(self.map)
 
     def create_minimap(self):
@@ -172,19 +175,19 @@ class World:
     render_size: int = conf.BLOCKS_RENDER_DISTANCE
 
     def __init__(self, world_map2d, world_size, position_start):
-        print("Initialize World")
+        logger.info("Initialize World")
         self.world_map2d = world_map2d
         self.world_size = world_size
         self.blocks_init(position_start)
 
     def delete(self):
-        print("Delete World")
+        logger.info("Delete World")
         for block in self.blocks:
             block.delete()
         self.blocks = list()
 
     def update(self, player_position):
-        print(f"Total blocks {len(self.blocks)}")
+        logger.debug(f"Total blocks {len(self.blocks)}")
         self.move_destroy(player_position)
         self.move_create(player_position)
         self.fill_vertical()
@@ -205,7 +208,7 @@ class World:
         self.fill_vertical()
 
     def move_create(self, player_position):
-        # __blocks_len = len(self.blocks)
+        _start_blocks_count = len(self.blocks)
         blocks_x = set([int(b.position.x) for b in self.blocks])
         blocks_z = set([int(b.position.z) for b in self.blocks])
 
@@ -221,10 +224,10 @@ class World:
         for z in new_z:
             for x in blocks_x:
                 self.render_block([x, 0, z])
-        # print(f"add {len(self.blocks) - __blocks_len} blocks")
+        logger.debug(f"Add {len(self.blocks) - _start_blocks_count} blocks")
 
     def move_destroy(self, player_position):
-        # __blocks_len = len(self.blocks)
+        _start_blocks_count = len(self.blocks)
         player_x, _, player_z = pos_to_xyz(player_position)
         for block in reversed(self.blocks):
             if (
@@ -235,10 +238,10 @@ class World:
             ):
                 self.blocks.remove(block)
                 destroy(block)
-        # print(f"del {__blocks_len - len(self.blocks)} blocks")
+        logger.debug(f"Del {_start_blocks_count - len(self.blocks)} blocks")
 
     def fill_vertical(self):
-        # __blocks_len = len(self.blocks)
+        _start_blocks_count = len(self.blocks)
         self.blocks.sort(key=lambda b: b.position.y, reverse=True)
         for block in self.blocks:
             x = int(block.position.x)
@@ -256,7 +259,7 @@ class World:
                 self.blocks.append(Block(position=(x, y - 1, z), biome=block_around.biome))
                 block.is_lowest = False
                 break
-        # print(f"low {len(self.blocks) - __blocks_len} blocks")
+        logger.debug(f"Fill {len(self.blocks) - _start_blocks_count} blocks")
 
     def click_handler(self):
         for block in reversed(self.blocks):
@@ -283,7 +286,7 @@ class UrsinaMC(MainMenuUrsina):
         seed = kwargs.get("seed", random_seed())
         world_size = kwargs.get("world_size", conf.WORLD_SIZE)
         speed = kwargs.get("player_speed", conf.PLAYER_SPEED)
-        print(f"Settings: {seed=}, {world_size=}, {speed=}")
+        logger.info(f"Settings: {seed=}, {world_size=}, {speed=}")
 
         self.world_map2d = generate_world_map(size=world_size, seed=seed)
         start_position = self.random_start_position(world_size=world_size)
@@ -293,13 +296,13 @@ class UrsinaMC(MainMenuUrsina):
         self.player = Player(position_start=start_position, speed=speed, enable_fly=True)
 
         self.game_active = True
-        print("Game active")
+        logger.info("Game active")
         super().start_game()
 
     def quit_game(self):
         if not self.game_active:
             sys.exit()
-        print("Quiting game")
+        logger.info("Quiting game")
         self.game_active = False
         self.world_map2d = None
         self.world.delete()
@@ -312,13 +315,14 @@ class UrsinaMC(MainMenuUrsina):
         self.game_background = None
         super().quit_game()
 
+    @timeit
     def random_start_position(self, world_size: int):
         while True:
             x = random.randint(1, world_size - 1)
             z = random.randint(1, world_size - 1)
             biome_block = self.world_map2d[x][z]
             position = [x + 0.5, biome_block.world_height, z + 0.5]
-            print(f"Start position {position=}")
+            logger.debug(f"Random position {position=}")
             if biome_block.biome not in [Biomes.SEA, Biomes.LAKE]:
                 return position
 
@@ -336,5 +340,6 @@ class UrsinaMC(MainMenuUrsina):
 
 
 if __name__ == "__main__":
+    setup_logger(logger=logger)
     app = UrsinaMC()
     app.run()

@@ -2,3 +2,7 @@ PLAYER_SPEED = 5
 WORLD_SIZE = 500
 ISLAND_SEED_CLASSIC = 34315  # 48893
 BLOCKS_RENDER_DISTANCE = 10
+
+LOGGER_NAME = "game"
+LOGGER_FILE_NAME = "log"
+LOGGER_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
