@@ -8,10 +8,12 @@ from typing import List
 import numpy as np
 from matplotlib import pyplot as plt
 from ursina.camera import instance as camera
-from ursina.color import color, light_gray
+from ursina.color import color, light_gray, gray
 from ursina.entity import Entity
 from ursina.mouse import instance as mouse
-from ursina.prefabs.first_person_controller import Button, FirstPersonController
+from ursina.prefabs.button import Button
+from ursina.prefabs.first_person_controller import FirstPersonController
+from ursina.prefabs.health_bar import HealthBar
 from ursina.prefabs.sky import Sky
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
@@ -19,7 +21,7 @@ from ursina.ursinastuff import destroy, invoke
 
 import conf
 from block import Biomes
-from generate_world import generate_world_map, random_seed, world_map_colors
+from generate_world import Map2D, generate_world_map, random_seed, world_map_colors
 from main_menu import MainMenuUrsina
 from utils import X, Y, Z, pos_to_xyz, setup_logger, timeit
 
@@ -27,6 +29,13 @@ from utils import X, Y, Z, pos_to_xyz, setup_logger, timeit
 
 
 logger = logging.getLogger(conf.LOGGER_NAME)
+
+
+class GameState(Enum):
+    MAIN_MENU = 0
+    STARTING = 1
+    PLAYING = 2
+    # PAUSED = 3
 
 
 class Player(FirstPersonController):
@@ -37,12 +46,9 @@ class Player(FirstPersonController):
         super().__init__()
         self.enable_fly = enable_fly
         self.speed = speed
-        position_start[Y] += 2
-        self.position_start = position_start.copy()
-        position_start[Y] = -10
+        position_start[Y] += 10  # Let player fall on the map from sky
         self.position = self.position_previous = position_start
-        invoke(setattr, self, "position", self.position_start, delay=5)
-        logger.info(f"Player position start {self.position_start}")
+        logger.info(f"Player position start {self.position}")
 
     def delete(self):
         logger.info("Delete Player")
@@ -160,6 +166,7 @@ class MiniMap:
             texture=self.get_minimap_path(),
         )
 
+    @timeit
     def save_minimap(self):
         """Save minimap as PNG image"""
         path = self.get_minimap_path()
@@ -278,32 +285,67 @@ class World:
 
 
 class UrsinaMC(MainMenuUrsina):
+    world_map2d: Map2D = None
+    world = None
+    player = None
+    minimap = None
+    game_background = None
+    loading_step: int = 0
+
     def __init__(self):
         super().__init__()
-        self.game_active = False
+        self.game_state = GameState.MAIN_MENU
 
     def start_game(self, **kwargs):
-        seed = kwargs.get("seed", random_seed())
-        world_size = kwargs.get("world_size", conf.WORLD_SIZE)
-        speed = kwargs.get("player_speed", conf.PLAYER_SPEED)
-        logger.info(f"Settings: {seed=}, {world_size=}, {speed=}")
-
-        self.world_map2d = generate_world_map(size=world_size, seed=seed)
-        start_position = self.random_start_position(world_size=world_size)
-        self.world = World(self.world_map2d, world_size, start_position)
-        self.minimap = MiniMap(self.world_map2d, seed, world_size)
-        self.game_background = Sky()
-        self.player = Player(position_start=start_position, speed=speed, enable_fly=True)
-
-        self.game_active = True
-        logger.info("Game active")
+        self.game_state = GameState.STARTING
+        logger.info("Game starting")
+        self.seed = kwargs.get("seed", random_seed())
+        self.world_size = kwargs.get("world_size", conf.WORLD_SIZE)
+        self.speed = kwargs.get("player_speed", conf.PLAYER_SPEED)
+        logger.info(f"Settings: {self.seed=}, {self.world_size=}, {self.speed=}")
         super().start_game()
 
+    def load_game_sequentially(self):
+        if self.loading_step == 0:
+            self.loading_bar = HealthBar(
+                max_value=100,
+                value=1,
+                position=(-0.5, -0.35, -2),
+                scale_x=1,
+                animation_duration=0,
+                bar_color=gray,
+            )
+        if self.loading_step == 10:
+            self.game_background = Sky()
+        elif self.loading_step == 20:
+            self.world_map2d = generate_world_map(size=self.world_size, seed=self.seed)
+        elif self.loading_step == 30:
+            self.start_position = self.random_start_position(world_size=self.world_size)
+            self.world = World(self.world_map2d, self.world_size, self.start_position)
+        elif self.loading_step == 40:
+            self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
+        elif self.loading_step == 80:
+            self.player = Player(
+                position_start=self.start_position, speed=self.speed, enable_fly=True
+            )
+            destroy(self.loading_bar)
+            self.loading_bar = None
+            self.game_state = GameState.PLAYING
+            logger.info("Game playing")
+            return
+        self.loading_bar.value = self.loading_step
+        self.loading_step += 1
+
     def quit_game(self):
-        if not self.game_active:
+        if self.game_state == GameState.MAIN_MENU:
+            logger.info("Exit game")
             sys.exit()
         logger.info("Quiting game")
-        self.game_active = False
+        self.reset_game()
+        self.game_state = GameState.MAIN_MENU
+        super().quit_game()
+
+    def reset_game(self):
         self.world_map2d = None
         self.world.delete()
         self.world = None
@@ -313,7 +355,7 @@ class UrsinaMC(MainMenuUrsina):
         self.minimap = None
         destroy(self.game_background)
         self.game_background = None
-        super().quit_game()
+        self.loading_step = 0
 
     @timeit
     def random_start_position(self, world_size: int):
@@ -332,7 +374,9 @@ class UrsinaMC(MainMenuUrsina):
         super().input(key)
 
     def _update(self, task):
-        if self.game_active:
+        if self.game_state == GameState.STARTING:
+            self.load_game_sequentially()
+        elif self.game_state == GameState.PLAYING:
             if self.player.check_new_position():
                 self.world.update(self.player.position)
             self.world.click_handler()

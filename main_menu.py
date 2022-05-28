@@ -6,7 +6,7 @@ from ursina.camera import instance as camera
 from ursina.entity import Entity
 from ursina.main import Ursina
 from ursina.prefabs.animator import Animator
-from ursina.prefabs.first_person_controller import Button
+from ursina.prefabs.button import Button
 from ursina.prefabs.slider import Slider
 from ursina.sequence import Func, Sequence, Wait
 
