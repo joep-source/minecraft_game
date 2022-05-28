@@ -37,7 +37,9 @@ def timeit(method):
         result = method(*args, **kw)
         time_end = time.time()
         logger.debug(f"Function '{method.__name__}' executed in {time_end - time_start:.3f}s")
-        time.sleep(1)
         return result
 
     return timed
+
+
+setup_logger(logger)
