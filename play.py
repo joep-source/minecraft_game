@@ -19,6 +19,7 @@ from ursina.prefabs.sky import Sky
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
 from ursina.ursinastuff import destroy
+from ursina.window import instance as window
 
 import conf
 from block import Biomes
@@ -31,7 +32,7 @@ from generate_world import (
     create_circulair_map_mask,
     generate_noise_map,
     random_seed,
-    world_map_colors
+    world_map_colors,
 )
 from main_menu import MainMenuUrsina
 from utils import X, Y, Z, pos_to_xyz, setup_logger, timeit
@@ -58,7 +59,7 @@ class Player(FirstPersonController):
         self.enable_fly = enable_fly
         self.set_fly(on=False)
         self.speed = speed
-        position_start[Y] += 5  # Let player fall on the map from sky
+        position_start[Y] += 3  # Let player fall on the map from sky
         self.position = self.position_previous = position_start
         logger.info(f"Player position start {self.position}")
 
@@ -217,8 +218,10 @@ class World:
     def render_block(self, position):
         x, y, z = pos_to_xyz(position)
         if all([0 <= pos < self.world_size for pos in (x, z)]):
-            y = self.world_map2d[x][z].world_height
             biome = self.world_map2d[x][z].biome
+            y = self.world_map2d[x][z].world_height
+            if biome in [Biomes.LAKE, Biomes.SEA]:
+                y -= 0.3
             self.blocks.append(Block(position=(x, y, z), biome=biome))
 
     def blocks_init(self, position_start=[0, 0, 0]):
@@ -415,4 +418,11 @@ class UrsinaMC(MainMenuUrsina):
 if __name__ == "__main__":
     setup_logger(logger=logger)
     app = UrsinaMC()
+
+    window.title = "Mincraft Ursina"
+    window.borderless = True
+    window.fullscreen = False
+    window.exit_button.visible = False
+    window.fps_counter.enabled = True
+
     app.run()
