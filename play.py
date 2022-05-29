@@ -4,7 +4,7 @@ import sys
 from enum import Enum
 from functools import lru_cache
 from os import path
-from typing import List, Union
+from typing import List, Tuple, Union
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -29,13 +29,13 @@ from generate_world import (
     Map2D,
     combine_maps,
     convert_to_blocks_map,
-    create_circulair_map_mask,
+    create_circular_map_mask,
     generate_noise_map,
     random_seed,
     world_map_colors,
 )
 from main_menu import MainMenuUrsina
-from utils import X, Y, Z, pos_to_xyz, setup_logger, timeit
+from utils import Z_2D, X, Y, Z, points_in_2dcircle, pos_to_xyz, setup_logger, timeit
 
 # from ursina import *
 
@@ -81,12 +81,11 @@ class Player(FirstPersonController):
             if key == "q" and self.fly:
                 self.y -= 1
 
-    def check_new_position(self) -> bool:
+    def has_new_position(self) -> bool:
         pos_cur = pos_to_xyz(self.position)
         pos_old = pos_to_xyz(self.position_previous)
         if (pos_cur[X], pos_cur[Z]) != (pos_old[X], pos_old[Z]):
             logger.info(f"Player position new {pos_to_xyz(self.position)}")
-            self.position_previous = self.position
             return True
         return False
 
@@ -125,6 +124,7 @@ class Block(Button):
     destroy = False
     create_position = None
     is_lowest = False
+    fix_pos: int
 
     # By setting the parent to scene and the model to 'cube' it becomes a 3d button.
     def __init__(
@@ -134,9 +134,10 @@ class Block(Button):
         is_lowest=True,
         fix_pos=0.5,
     ):
+        self.fix_pos = fix_pos
         position = list(position)
-        position[X] = position[X] + fix_pos
-        position[Z] = position[Z] + fix_pos
+        position[X] += self.fix_pos
+        position[Z] += self.fix_pos
         texture = get_texture(biome if not self.create_position else None)
         super().__init__(
             parent=scene,
@@ -151,6 +152,9 @@ class Block(Button):
 
     def delete(self):
         self.destroy = True
+
+    def get_map_position(self) -> Tuple[int, int, int]:
+        return self.position.x - self.fix_pos, self.position.y, self.position.z - self.fix_pos
 
     def input(self, key):
         if self.hovered:
@@ -204,7 +208,7 @@ class World:
         self.world_map2d = world_map2d
         self.world_size = world_size
         self.render_size = render_size
-        self.blocks_init(position_start)
+        self.update(position_start, None)
 
     def delete(self):
         logger.info("Delete World")
@@ -212,11 +216,33 @@ class World:
             block.delete()
         self.blocks = list()
 
-    def update(self, player_position):
-        logger.debug(f"Total blocks {len(self.blocks)}")
-        self.move_destroy(player_position)
-        self.move_create(player_position)
+    def update(self, player_position_new, player_position_old):
+        points_wanted_2d = points_in_2dcircle(
+            radius=self.render_size,
+            x_offset=int(player_position_new[X]),
+            y_offset=int(player_position_new[Z]),
+        )
+        points_current_2d = set()
+        if player_position_old:
+            points_current_2d = points_in_2dcircle(
+                radius=self.render_size,
+                x_offset=int(player_position_old[X]),
+                y_offset=int(player_position_old[Z]),
+            )
+
+        points_del_2d = points_current_2d.difference(points_wanted_2d)
+        for block in reversed(self.blocks):
+            x, _, z = block.get_map_position()
+            if any(x == point[X] and z == point[Z_2D] for point in points_del_2d):
+                self.blocks.remove(block)
+                destroy(block)
+
+        points_add_2d = points_wanted_2d.difference(points_current_2d)
+        for point in points_add_2d:
+            self.render_block(position=[point[X], 0, point[Z_2D]])
+
         self.fill_vertical()
+        logger.debug(f"Total blocks {len(self.blocks)}")
 
     def render_block(self, position):
         x, y, z = pos_to_xyz(position)
@@ -226,47 +252,6 @@ class World:
             if biome in [Biomes.LAKE, Biomes.SEA]:
                 y -= 0.3
             self.blocks.append(Block(position=(x, y, z), biome=biome))
-
-    def blocks_init(self, position_start=[0, 0, 0]):
-        for z in range(-self.render_size, self.render_size + 1):
-            z += position_start[Z]
-            for x in range(-self.render_size, self.render_size + 1):
-                x += position_start[X]
-                self.render_block([x, 0, z])
-        self.fill_vertical()
-
-    def move_create(self, player_position):
-        _start_blocks_count = len(self.blocks)
-        blocks_x = set([int(b.position.x) for b in self.blocks])
-        blocks_z = set([int(b.position.z) for b in self.blocks])
-
-        player_x, _, player_z = pos_to_xyz(player_position)
-        size = self.render_size
-        new_x = [n for n in [player_x - size, player_x + size] if n not in blocks_x]
-        new_z = [n for n in [player_z - size, player_z + size] if n not in blocks_z]
-
-        for x in new_x:
-            for z in blocks_z:
-                self.render_block([x, 0, z])
-            blocks_x.add(x)
-        for z in new_z:
-            for x in blocks_x:
-                self.render_block([x, 0, z])
-        logger.debug(f"Add {len(self.blocks) - _start_blocks_count} blocks")
-
-    def move_destroy(self, player_position):
-        _start_blocks_count = len(self.blocks)
-        player_x, _, player_z = pos_to_xyz(player_position)
-        for block in reversed(self.blocks):
-            if (
-                block.position.x < player_x - self.render_size + 0.5
-                or block.position.x > player_x + self.render_size + 0.5
-                or block.position.z < player_z - self.render_size + 0.5
-                or block.position.z > player_z + self.render_size + 0.5
-            ):
-                self.blocks.remove(block)
-                destroy(block)
-        logger.debug(f"Del {_start_blocks_count - len(self.blocks)} blocks")
 
     def fill_vertical(self):
         _start_blocks_count = len(self.blocks)
@@ -296,10 +281,7 @@ class World:
                 destroy(block)
             elif block.create_position:
                 new_block = Block(
-                    position=block.create_position,
-                    biome=None,
-                    is_lowest=False,
-                    fix_pos=False,
+                    position=block.create_position, biome=None, is_lowest=False, fix_pos=0
                 )
                 self.blocks.append(new_block)
                 block.create_position = None
@@ -341,7 +323,7 @@ class UrsinaMC(MainMenuUrsina):
         elif self.loading_step == 10:
             # Generate map 1/3
             heigth_map = generate_noise_map(self.world_shape, self.seed, **NOISE_HEIGHT_ISLAND)
-            circulair_map = create_circulair_map_mask(self.world_size)
+            circulair_map = create_circular_map_mask(self.world_size)
             self._heigth_map_island = combine_maps(heigth_map, circulair_map)
         elif self.loading_step == 20:
             # Generate map 2/3
@@ -412,8 +394,9 @@ class UrsinaMC(MainMenuUrsina):
         if self.game_state == GameState.STARTING:
             self.load_game_sequentially()
         elif self.game_state == GameState.PLAYING:
-            if self.player.check_new_position():
-                self.world.update(self.player.position)
+            if self.player.has_new_position():
+                self.world.update(self.player.position, self.player.position_previous)
+                self.player.position_previous = self.player.position
             self.world.click_handler()
         return super()._update(task)
 

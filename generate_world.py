@@ -39,7 +39,7 @@ def random_seed(between=[10000, 99999]) -> int:
 
 
 @timeit
-def create_circulair_map_mask(size: int) -> Map2D:
+def create_circular_map_mask(size: int) -> Map2D:
     """Map with rounded edges"""
     x, y = np.meshgrid(np.linspace(-1, 1, size), np.linspace(-1, 1, size))
     mask = np.sqrt((x) ** 2 + (y) ** 2)
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     noise_height = NOISE_HEIGHT_ISLAND if is_island else NOISE_HEIGHT
     heigth_map = generate_noise_map(world_shape, seed, **noise_height)
     if is_island:
-        heigth_map = combine_maps(heigth_map, create_circulair_map_mask(size))
+        heigth_map = combine_maps(heigth_map, create_circular_map_mask(size))
     heat_map = generate_noise_map(world_shape, seed, **NOISE_HEAT)
     world_map = convert_to_blocks_map(heigth_map, heat_map)
 

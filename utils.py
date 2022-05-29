@@ -1,18 +1,34 @@
 import logging
 import time
-from typing import List, Tuple
+from itertools import product
+from typing import List, Set, Tuple
 
 import conf
 
 X = 0
 Y = 1
 Z = 2
+Z_2D = 1
 
 logger = logging.getLogger(conf.LOGGER_FILE_NAME)
 
 
 def pos_to_xyz(position: List) -> Tuple[int, int, int]:
     return int(position[X]), int(position[Y]), int(position[Z])
+
+
+def points_in_2dcircle(radius: int, x_offset: int = 0, y_offset: int = 0) -> Set[Tuple[int, int]]:
+    all_points: Set = set()
+    for x, y in product(range(radius + 1), repeat=2):
+        if x**2 + y**2 <= radius**2:
+            coords = (
+                (x_offset + x, y_offset + y),
+                (x_offset + x, y_offset - y),
+                (x_offset - x, y_offset + y),
+                (x_offset - x, y_offset - y),
+            )
+            all_points = all_points.union(coords)
+    return all_points
 
 
 def setup_logger(logger, level: int = logging.DEBUG):
