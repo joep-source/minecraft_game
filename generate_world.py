@@ -59,7 +59,7 @@ def combine_maps(map1: Map2D, map2: Map2D) -> Map2D:
 
 
 @timeit
-def to_blocks_map(heigth_map: Map2D, heat_map: Map2D) -> Map2D:
+def convert_to_blocks_map(heigth_map: Map2D, heat_map: Map2D) -> Map2D:
     blocks = [
         BiomeBlock(height=heigth, heat=heat)
         for heigth, heat in zip(np.nditer(heigth_map), np.nditer(heat_map))
@@ -74,17 +74,6 @@ def generate_noise_map(shape: Tuple, seed: int, **params):
 
     noises = [_gen_noise(y, x, **params) for y, x in np.ndindex(shape)]
     return normalize(np.array(noises).reshape(shape))
-
-
-def generate_world_map(size: int, seed: int = 1, island: bool = True) -> Map2D:
-    world_shape = (size, size)
-    noise_height = NOISE_HEIGHT_ISLAND if island else NOISE_HEIGHT
-    heigth_map = generate_noise_map(world_shape, seed, **noise_height)
-    if island:
-        heigth_map = combine_maps(heigth_map, create_circulair_map_mask(size))
-    heat_map = generate_noise_map(world_shape, seed, **NOISE_HEAT)
-    world_map = to_blocks_map(heigth_map, heat_map)
-    return world_map
 
 
 def world_map_colors(world_map: Map2D, border=True) -> List[List[Tuple[float, float, float]]]:
@@ -107,8 +96,18 @@ def world_map_colors(world_map: Map2D, border=True) -> List[List[Tuple[float, fl
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
+    seed = random_seed()
+    size = 300
+    world_shape = (size, size)
+    is_island = True
+
     print("Generating world map")
-    world_map = generate_world_map(size=300, seed=random_seed())
+    noise_height = NOISE_HEIGHT_ISLAND if is_island else NOISE_HEIGHT
+    heigth_map = generate_noise_map(world_shape, seed, **noise_height)
+    if is_island:
+        heigth_map = combine_maps(heigth_map, create_circulair_map_mask(size))
+    heat_map = generate_noise_map(world_shape, seed, **NOISE_HEAT)
+    world_map = convert_to_blocks_map(heigth_map, heat_map)
 
     print("Show world map")
     world_map_biome = world_map_colors(world_map, border=True)

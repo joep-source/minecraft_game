@@ -7,7 +7,7 @@ name = "pypi"
 matplotlib = "*"
 numpy = "*"
 ursina = "*"
-noise = "==1.2.1"
+noise = "*"
 
 [dev-packages]
 black = "*"

@@ -42,8 +42,10 @@ class MainMenuUrsina(Ursina):
 
     def setup_main_menu_buttons(self):
         self.main_menu.buttons = [
-            MenuButton("Classic", on_click=Func(self.start_game, seed=conf.ISLAND_SEED_CLASSIC)),
-            MenuButton("Random island", on_click=self.start_game),
+            MenuButton(
+                "Classic", on_click=Func(self.pre_start_game, seed=conf.ISLAND_SEED_CLASSIC)
+            ),
+            MenuButton("Random island", on_click=self.pre_start_game),
             MenuButton(
                 "Custom game", on_click=Func(setattr, self.state_handler, "state", "custom_menu")
             ),
@@ -55,41 +57,38 @@ class MainMenuUrsina(Ursina):
             button.y = -i * self.button_spacing
 
     def setup_custom_menu_buttons(self):
-        speed_slider = Slider(
-            1, 20, default=conf.PLAYER_SPEED, step=1, text="Player speed", parent=self.custom_menu
+        speed_slider = Slider(text="Player speed", min=1, max=20, step=1, default=conf.PLAYER_SPEED)
+        render_slider = Slider(
+            text="Player blocks view:", min=4, max=30, step=1, default=conf.BLOCKS_RENDER_DISTANCE
         )
-        size_slider = Slider(
-            50, 5000, default=conf.WORLD_SIZE, step=5, text="World size:", parent=self.custom_menu
-        )
+        size_slider = Slider(text="World size:", min=50, max=2000, step=5, default=conf.WORLD_SIZE)
         self.custom_settings = {
             "player_speed": speed_slider,
+            "render_size": render_slider,
             "world_size": size_slider,
         }
 
         self.custom_menu.buttons = [
+            MenuButton(text="Start", on_click=Func(self.pre_start_game, custom=True)),
             MenuButton(
-                parent=self.custom_menu,
-                text="Start",
-                on_click=self.start_custom_game,
-            ),
-            MenuButton(
-                parent=self.custom_menu,
-                text="Back",
-                on_click=Func(setattr, self.state_handler, "state", "main_menu"),
+                text="Back", on_click=Func(setattr, self.state_handler, "state", "main_menu")
             ),
         ]
 
         for i, entity in enumerate(list(self.custom_settings.values()) + self.custom_menu.buttons):
+            entity.parent = self.custom_menu
             entity.y = -i * self.button_spacing
 
-    def start_custom_game(self):
-        settings = self.custom_settings.copy()
-        for key, entity in settings.items():
-            settings[key] = entity.value
+    def pre_start_game(self, **kwargs):
+        settings = kwargs
+        if kwargs.get("custom"):
+            settings = self.custom_settings.copy()
+            for key, entity in settings.items():
+                settings[key] = entity.value
+        self.menu_parent.enabled = False
         self.start_game(**settings)
 
     def start_game(self, **kwargs):
-        self.menu_parent.enabled = False
         self.background.enabled = False
 
     def quit_game(self):

@@ -1,6 +1,7 @@
 import logging
 import random
 import sys
+from enum import Enum
 from functools import lru_cache
 from os import path
 from typing import List
@@ -8,7 +9,7 @@ from typing import List
 import numpy as np
 from matplotlib import pyplot as plt
 from ursina.camera import instance as camera
-from ursina.color import color, light_gray, gray
+from ursina.color import color, gray, light_gray
 from ursina.entity import Entity
 from ursina.mouse import instance as mouse
 from ursina.prefabs.button import Button
@@ -17,11 +18,21 @@ from ursina.prefabs.health_bar import HealthBar
 from ursina.prefabs.sky import Sky
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
-from ursina.ursinastuff import destroy, invoke
+from ursina.ursinastuff import destroy
 
 import conf
 from block import Biomes
-from generate_world import Map2D, generate_world_map, random_seed, world_map_colors
+from generate_world import (
+    NOISE_HEAT,
+    NOISE_HEIGHT_ISLAND,
+    Map2D,
+    combine_maps,
+    convert_to_blocks_map,
+    create_circulair_map_mask,
+    generate_noise_map,
+    random_seed,
+    world_map_colors
+)
 from main_menu import MainMenuUrsina
 from utils import X, Y, Z, pos_to_xyz, setup_logger, timeit
 
@@ -45,8 +56,9 @@ class Player(FirstPersonController):
     def __init__(self, position_start, speed, enable_fly=False):
         super().__init__()
         self.enable_fly = enable_fly
+        self.set_fly(on=False)
         self.speed = speed
-        position_start[Y] += 10  # Let player fall on the map from sky
+        position_start[Y] += 5  # Let player fall on the map from sky
         self.position = self.position_previous = position_start
         logger.info(f"Player position start {self.position}")
 
@@ -145,6 +157,8 @@ class Block(Button):
 
 
 class MiniMap:
+    map: Entity
+
     def __init__(self, world_map2d, seed, world_size):
         self.world_map2d = world_map2d
         self.seed = seed
@@ -178,13 +192,14 @@ class MiniMap:
 
 
 class World:
+    render_size: int
     blocks: List[Block] = list()
-    render_size: int = conf.BLOCKS_RENDER_DISTANCE
 
-    def __init__(self, world_map2d, world_size, position_start):
+    def __init__(self, world_map2d: Map2D, world_size: int, position_start, render_size: int):
         logger.info("Initialize World")
         self.world_map2d = world_map2d
         self.world_size = world_size
+        self.render_size = render_size
         self.blocks_init(position_start)
 
     def delete(self):
@@ -301,12 +316,14 @@ class UrsinaMC(MainMenuUrsina):
         logger.info("Game starting")
         self.seed = kwargs.get("seed", random_seed())
         self.world_size = kwargs.get("world_size", conf.WORLD_SIZE)
+        self.world_shape = (self.world_size, self.world_size)
         self.speed = kwargs.get("player_speed", conf.PLAYER_SPEED)
-        logger.info(f"Settings: {self.seed=}, {self.world_size=}, {self.speed=}")
-        super().start_game()
+        self.render_size = kwargs.get("render_size", conf.BLOCKS_RENDER_DISTANCE)
+        print(f"Settings: {self.seed=}, {self.world_size=}, {self.speed=}, {self.render_size=}")
 
     def load_game_sequentially(self):
         if self.loading_step == 0:
+            self.game_background = Sky()
             self.loading_bar = HealthBar(
                 max_value=100,
                 value=1,
@@ -315,26 +332,38 @@ class UrsinaMC(MainMenuUrsina):
                 animation_duration=0,
                 bar_color=gray,
             )
-        if self.loading_step == 10:
-            self.game_background = Sky()
+        elif self.loading_step == 10:
+            # Generate map 1/3
+            heigth_map = generate_noise_map(self.world_shape, self.seed, **NOISE_HEIGHT_ISLAND)
+            circulair_map = create_circulair_map_mask(self.world_size)
+            self._heigth_map_island = combine_maps(heigth_map, circulair_map)
         elif self.loading_step == 20:
-            self.world_map2d = generate_world_map(size=self.world_size, seed=self.seed)
+            # Generate map 2/3
+            self._heat_map = generate_noise_map(self.world_shape, self.seed, **NOISE_HEAT)
         elif self.loading_step == 30:
-            self.start_position = self.random_start_position(world_size=self.world_size)
-            self.world = World(self.world_map2d, self.world_size, self.start_position)
+            # Generate map 3/3
+            self.world_map2d = convert_to_blocks_map(self._heigth_map_island, self._heat_map)
         elif self.loading_step == 40:
+            self.start_position = self.random_start_position(world_size=self.world_size)
+            self.world = World(
+                self.world_map2d, self.world_size, self.start_position, self.render_size
+            )
+        elif self.loading_step == 50:
             self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
-        elif self.loading_step == 80:
+            self.minimap.map.visible = False
+        elif self.loading_step == 90:
+            destroy(self.loading_bar)
+            self.loading_bar = None
+            self.minimap.map.visible = True
             self.player = Player(
                 position_start=self.start_position, speed=self.speed, enable_fly=True
             )
-            destroy(self.loading_bar)
-            self.loading_bar = None
+            super().start_game()
             self.game_state = GameState.PLAYING
             logger.info("Game playing")
             return
         self.loading_bar.value = self.loading_step
-        self.loading_step += 1
+        self.loading_step += 2
 
     def quit_game(self):
         if self.game_state == GameState.MAIN_MENU:

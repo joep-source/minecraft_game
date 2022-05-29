@@ -17,7 +17,7 @@ jobs:
           pip install pytest mypy
       - name: pytest
         run: |
-          pytest
+          pytest .
       - name: mypy
         run: |
           mypy .
