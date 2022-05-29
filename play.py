@@ -4,7 +4,7 @@ import sys
 from enum import Enum
 from functools import lru_cache
 from os import path
-from typing import List
+from typing import List, Union
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -99,7 +99,7 @@ class Player(FirstPersonController):
 
 
 @lru_cache(maxsize=None)
-def get_texture(biome: str):
+def get_texture(biome: Union[str, None]):
     get_file = lambda name: path.join("textures", name)
     if biome == Biomes.SEA:
         return load_texture(get_file("sea.png"))
@@ -117,6 +117,8 @@ def get_texture(biome: str):
         return load_texture(get_file("stone.png"))
     elif biome == Biomes.MOUNTAIN_SNOW:
         return load_texture(get_file("snow.png"))
+    elif biome == None:
+        return load_texture(get_file("plank.png"))
 
 
 class Block(Button):
@@ -135,11 +137,12 @@ class Block(Button):
         position = list(position)
         position[X] = position[X] + fix_pos
         position[Z] = position[Z] + fix_pos
+        texture = get_texture(biome if not self.create_position else None)
         super().__init__(
             parent=scene,
             position=position,
             model="cube",
-            texture=get_texture(biome),
+            texture=texture,
             scale=1,
             color=color(0, 0, random.uniform(0.95, 1)),
             highlight_color=light_gray,
