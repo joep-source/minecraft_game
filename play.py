@@ -121,24 +121,28 @@ def get_texture(biome: Union[str, None]):
 
 
 class Block(Button):
-    destroy = False
-    create_position = None
-    is_lowest = False
+    destroyable: bool = False
+    destroy: bool = False
+    create_position: bool = None
+    is_lowest: bool = False
     fix_pos: int
 
     # By setting the parent to scene and the model to 'cube' it becomes a 3d button.
     def __init__(
         self,
-        position=(0, 0, 0),
-        biome: str = Biomes.HILL,
+        position: List[int],
+        biome: str,
         is_lowest=True,
         fix_pos=0.5,
+        destroyable=False,
     ):
         self.fix_pos = fix_pos
+        self.biome = biome
+        self.destroyable = destroyable
         position = list(position)
         position[X] += self.fix_pos
         position[Z] += self.fix_pos
-        texture = get_texture(biome if not self.create_position else None)
+        texture = get_texture(self.biome if not self.create_position else None)
         super().__init__(
             parent=scene,
             position=position,
@@ -154,13 +158,17 @@ class Block(Button):
         self.destroy = True
 
     def get_map_position(self) -> Tuple[int, int, int]:
-        return self.position.x - self.fix_pos, self.position.y, self.position.z - self.fix_pos
+        return (
+            int(self.position.x - self.fix_pos),
+            int(self.position.y),
+            int(self.position.z - self.fix_pos),
+        )
 
     def input(self, key):
         if self.hovered:
-            if key == "left mouse down":
+            if key == "left mouse down" and self.biome not in [Biomes.LAKE, Biomes.SEA]:
                 self.create_position = self.position + mouse.normal
-            if key == "right mouse down":
+            if key == "right mouse down" and self.destroyable:
                 self.delete()
 
 
@@ -281,7 +289,11 @@ class World:
                 destroy(block)
             elif block.create_position:
                 new_block = Block(
-                    position=block.create_position, biome=None, is_lowest=False, fix_pos=0
+                    position=block.create_position,
+                    biome=None,
+                    is_lowest=False,
+                    fix_pos=0,
+                    destroyable=True,
                 )
                 self.blocks.append(new_block)
                 block.create_position = None
