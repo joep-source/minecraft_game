@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 from ursina.camera import instance as camera
 from ursina.color import color, gray, light_gray
 from ursina.entity import Entity
+from ursina.models.procedural.grid import Grid
 from ursina.mouse import instance as mouse
 from ursina.prefabs.button import Button
 from ursina.prefabs.first_person_controller import FirstPersonController
@@ -152,6 +153,8 @@ class Block(Button):
             color=color(0, 0, random.uniform(0.95, 1)),
             highlight_color=light_gray,
         )
+        if self.biome in [Biomes.LAKE, Biomes.SEA]:
+            self.collider = None
         self.is_lowest = is_lowest
 
     def delete(self):
@@ -216,6 +219,14 @@ class World:
         self.world_map2d = world_map2d
         self.world_size = world_size
         self.render_size = render_size
+        self.hidden_floor = Entity(
+            model=Grid(1, 1),
+            rotation_x=90,
+            collider="box",
+            scale=self.world_size * 2,
+            position=(0, -1.9, 0),
+            visible=False,
+        )
         self.update(position_start, None)
 
     def delete(self):
