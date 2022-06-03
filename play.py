@@ -40,6 +40,7 @@ from utils import Z_2D, X, Y, Z, points_in_2dcircle, pos_to_xyz, setup_logger, t
 
 # from ursina import *
 
+WATER_BLOCKS = [Biomes.LAKE, Biomes.SEA]
 
 logger = logging.getLogger(conf.LOGGER_NAME)
 
@@ -48,17 +49,15 @@ class GameState(Enum):
     MAIN_MENU = 0
     STARTING = 1
     PLAYING = 2
-    # PAUSED = 3
 
 
 class Player(FirstPersonController):
     position: List
     position_previous: List
 
-    def __init__(self, position_start, speed, enable_fly=False):
+    def __init__(self, position_start, speed, allow_fly=False):
         super().__init__()
-        self.enable_fly = enable_fly
-        self.set_fly(on=False)
+        self.allow_fly = allow_fly
         self.speed = speed
         position_start[Y] += 3  # Let player fall on the map from sky
         self.position = self.position_previous = position_start
@@ -72,14 +71,14 @@ class Player(FirstPersonController):
     def input(self, key):
         if key == "space":
             self.jump()
-            self.set_fly(on=False)
+            self.gravity = 1
         if key == "i":
-            logger.debug(f"Player position is {self.position}, {self.speed=}")
-        if self.enable_fly:
+            logger.info(f"Player position is {self.position}, {self.speed=}")
+        if self.allow_fly:
             if key == "e":
-                self.set_fly(on=True)
+                self.gravity = 0
                 self.y += 1
-            if key == "q" and self.fly:
+            if key == "q" and self.gravity == 0:
                 self.y -= 1
 
     def has_new_position(self) -> bool:
@@ -89,13 +88,6 @@ class Player(FirstPersonController):
             logger.info(f"Player position new {pos_to_xyz(self.position)}")
             return True
         return False
-
-    def set_fly(self, on: bool):
-        self.fly = on
-        if self.fly:
-            self.gravity = 0
-        else:
-            self.gravity = 1
 
 
 @lru_cache(maxsize=None)
@@ -124,8 +116,7 @@ def get_texture(biome: Union[str, None]):
 class Block(Button):
     destroyable: bool = False
     destroy: bool = False
-    create_position: bool = None
-    is_lowest: bool = False
+    create_position = None
     fix_pos: int
 
     # By setting the parent to scene and the model to 'cube' it becomes a 3d button.
@@ -133,7 +124,6 @@ class Block(Button):
         self,
         position: List[int],
         biome: str,
-        is_lowest=True,
         fix_pos=0.5,
         destroyable=False,
     ):
@@ -153,9 +143,8 @@ class Block(Button):
             color=color(0, 0, random.uniform(0.95, 1)),
             highlight_color=light_gray,
         )
-        if self.biome in [Biomes.LAKE, Biomes.SEA]:
+        if self.biome in WATER_BLOCKS:
             self.collider = None
-        self.is_lowest = is_lowest
 
     def delete(self):
         self.destroy = True
@@ -169,7 +158,7 @@ class Block(Button):
 
     def input(self, key):
         if self.hovered:
-            if key == "left mouse down" and self.biome not in [Biomes.LAKE, Biomes.SEA]:
+            if key == "left mouse down" and self.biome not in WATER_BLOCKS:
                 self.create_position = self.position + mouse.normal
             if key == "right mouse down" and self.destroyable:
                 self.delete()
@@ -258,40 +247,32 @@ class World:
 
         points_add_2d = points_wanted_2d.difference(points_current_2d)
         for point in points_add_2d:
-            self.render_block(position=[point[X], 0, point[Z_2D]])
-
-        self.fill_vertical()
+            self.render_block(position=[point[X], -1, point[Z_2D]])
         logger.debug(f"Total blocks {len(self.blocks)}")
 
     def render_block(self, position):
         x, y, z = pos_to_xyz(position)
-        if all([0 <= pos < self.world_size for pos in (x, z)]):
-            biome = self.world_map2d[x][z].biome
+        if not all([0 <= pos < self.world_size for pos in (x, z)]):
+            return  # Skip if outside of world
+        biome = self.world_map2d[x][z].biome
+        if y == -1:
             y = self.world_map2d[x][z].world_height
-            if biome in [Biomes.LAKE, Biomes.SEA]:
-                y -= 0.3
-            self.blocks.append(Block(position=(x, y, z), biome=biome))
+        if biome in WATER_BLOCKS:
+            y -= 0.3
+        self.blocks.append(Block(position=(x, y, z), biome=biome))
+        if biome not in WATER_BLOCKS:
+            self.fill_block_below((x, y, z))
 
-    def fill_vertical(self):
-        _start_blocks_count = len(self.blocks)
-        self.blocks.sort(key=lambda b: b.position.y, reverse=True)
-        for block in self.blocks:
-            x = int(block.position.x)
-            y = int(block.position.y)
-            z = int(block.position.z)
-            if not block.is_lowest:
-                continue
-            for x_diff, z_diff in [[1, 0], [-1, 0], [0, 1], [0, -1]]:
-                try:
-                    block_around = self.world_map2d[x + x_diff][z + z_diff]
-                except IndexError:
-                    continue
-                if y - block_around.world_height < 2:  # Skip high difference < 2
-                    continue
-                self.blocks.append(Block(position=(x, y - 1, z), biome=block_around.biome))
-                block.is_lowest = False
-                break
-        logger.debug(f"Fill {len(self.blocks) - _start_blocks_count} blocks")
+    def fill_block_below(self, position):
+        x, y, z = pos_to_xyz(position)
+        blocks_around = []
+        for x_diff, z_diff in [[1, 0], [-1, 0], [0, 1], [0, -1]]:
+            try:
+                blocks_around.append(self.world_map2d[x + x_diff][z + z_diff])
+            except IndexError:
+                continue  # Skip if outside of world
+        if any(y - block.world_height > 1 for block in blocks_around):
+            self.render_block(position=(x, y - 1, z))
 
     def click_handler(self):
         for block in reversed(self.blocks):
@@ -300,11 +281,7 @@ class World:
                 destroy(block)
             elif block.create_position:
                 new_block = Block(
-                    position=block.create_position,
-                    biome=None,
-                    is_lowest=False,
-                    fix_pos=0,
-                    destroyable=True,
+                    position=block.create_position, biome=None, fix_pos=0, destroyable=True
                 )
                 self.blocks.append(new_block)
                 block.create_position = None
@@ -367,7 +344,7 @@ class UrsinaMC(MainMenuUrsina):
             self.loading_bar = None
             self.minimap.map.visible = True
             self.player = Player(
-                position_start=self.start_position, speed=self.speed, enable_fly=True
+                position_start=self.start_position, speed=self.speed, allow_fly=True
             )
             super().start_game()
             self.game_state = GameState.PLAYING
