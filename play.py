@@ -8,8 +8,9 @@ from typing import List, Tuple, Union
 
 import numpy as np
 from matplotlib import pyplot as plt
+from ursina.main import time as utime
 from ursina.camera import instance as camera
-from ursina.color import color, gray, light_gray
+from ursina.color import color, gray, light_gray, violet
 from ursina.entity import Entity
 from ursina.models.procedural.grid import Grid
 from ursina.mouse import instance as mouse
@@ -19,6 +20,7 @@ from ursina.prefabs.health_bar import HealthBar
 from ursina.prefabs.sky import Sky
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
+from ursina.ursinamath import distance_xz
 from ursina.ursinastuff import destroy
 from ursina.window import instance as window
 
@@ -90,6 +92,24 @@ class Player(FirstPersonController):
         return False
 
 
+class Enemy(Entity):
+    player_ref: Player
+
+    def __init__(self, player, **kwargs):
+        self.player_ref = player
+        super().__init__(model="cube", color=violet, collider="box", **kwargs)
+        self.position = player.position
+
+    def update(self):
+        dist = distance_xz(self.player_ref.position, self.position)
+        if dist > 40:
+            return
+
+        self.look_at_2d(self.player_ref.position, "y")
+        if dist > 4:
+            self.position += self.forward * utime.dt * 5
+
+
 @lru_cache(maxsize=None)
 def get_texture(biome: Union[str, None]):
     get_file = lambda name: path.join("textures", name)
@@ -119,7 +139,6 @@ class Block(Button):
     create_position = None
     fix_pos: int
 
-    # By setting the parent to scene and the model to 'cube' it becomes a 3d button.
     def __init__(
         self,
         position: List[int],
@@ -346,6 +365,7 @@ class UrsinaMC(MainMenuUrsina):
             self.player = Player(
                 position_start=self.start_position, speed=self.speed, allow_fly=True
             )
+            Enemy(player=self.player)
             super().start_game()
             self.game_state = GameState.PLAYING
             logger.info("Game playing")
