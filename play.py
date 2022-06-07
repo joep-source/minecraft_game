@@ -11,17 +11,21 @@ from matplotlib import pyplot as plt
 from ursina.main import time as utime
 from ursina.camera import instance as camera
 from ursina.color import color, gray, light_gray, violet
+from ursina.curve import out_expo
 from ursina.entity import Entity
+from ursina.input_handler import held_keys
 from ursina.models.procedural.grid import Grid
 from ursina.mouse import instance as mouse
 from ursina.prefabs.button import Button
 from ursina.prefabs.first_person_controller import FirstPersonController
 from ursina.prefabs.health_bar import HealthBar
 from ursina.prefabs.sky import Sky
+from ursina.raycaster import raycast
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
 from ursina.ursinamath import distance_xz
-from ursina.ursinastuff import destroy
+from ursina.ursinastuff import destroy, invoke
+from ursina.vec3 import Vec3
 from ursina.window import instance as window
 
 import conf
@@ -76,12 +80,14 @@ class Player(FirstPersonController):
             self.gravity = 1
         if key == "i":
             logger.info(f"Player position is {self.position}, {self.speed=}")
+        if key == "e" and self.allow_fly:
+            self.gravity = 0
+
+    def update(self):
         if self.allow_fly:
-            if key == "e":
-                self.gravity = 0
-                self.y += 1
-            if key == "q" and self.gravity == 0:
-                self.y -= 1
+            self.direction = Vec3(self.up * (held_keys["e"] - held_keys["q"])).normalized()
+            self.position += self.direction * self.speed * utime.dt
+        super().update()
 
     def has_new_position(self) -> bool:
         pos_cur = pos_to_xyz(self.position)
@@ -93,21 +99,77 @@ class Player(FirstPersonController):
 
 
 class Enemy(Entity):
+    # Based on FirstPersonController but without camera
     player_ref: Player
+    speed = 4
+    height = 2
+    grounded = False
+    jump_height = 2
+    jump_up_duration = 0.5
+    fall_after = 0.35
+    air_time = 0
 
-    def __init__(self, player, **kwargs):
+    def __init__(self, player):
         self.player_ref = player
-        super().__init__(model="cube", color=violet, collider="box", **kwargs)
-        self.position = player.position
+        position = player.position
+        position[Y] += 10
+        super().__init__(
+            model="cube",
+            color=violet,
+            scale_y=self.height,
+            origin_y=-0.5,
+            collider="box",
+            position=position,
+        )
 
     def update(self):
-        dist = distance_xz(self.player_ref.position, self.position)
-        if dist > 40:
-            return
+        def _raycast(origin):
+            return raycast(origin=origin, direction=self.forward, distance=0.5, ignore=(self,))
 
         self.look_at_2d(self.player_ref.position, "y")
-        if dist > 4:
-            self.position += self.forward * utime.dt * 5
+        feet_ray = _raycast(origin=self.position + Vec3(0, 0.5, 0))
+        head_ray = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0))
+        distance_to_player = distance_xz(self.player_ref.position, self.position)
+        nearby_player = True if distance_to_player < 40 else False
+        attack_player = True if distance_to_player < 4 else False
+
+        if head_ray.hit:
+            pass
+        elif attack_player or feet_ray.hit:
+            self.jump()
+        elif nearby_player:
+            self.position += self.forward * self.speed * utime.dt
+
+        self.update_gravity()
+
+    def update_gravity(self):
+        ray = raycast(self.world_position + (0, self.height, 0), self.down, ignore=(self,))
+        if ray.distance <= self.height + 0.1:
+            if not self.grounded:
+                self.air_time = 0
+            self.grounded = True
+            # make sure it's not a wall and that the point is not too far up
+            if ray.world_normal.y > 0.7 and ray.world_point.y - self.world_y < 0.5:  # walk up slope
+                self.y = ray.world_point[1]
+            return
+        else:
+            self.grounded = False
+
+        # if not on ground and not on way up in jump, fall
+        self.y -= min(self.air_time, ray.distance - 0.05) * utime.dt * 100
+        self.air_time += utime.dt * 0.25
+
+    def jump(self):
+        if not self.grounded:
+            return
+        self.grounded = False
+        self.animate_y(
+            self.y + self.jump_height,
+            self.jump_up_duration,
+            resolution=int(1 // utime.dt),
+            curve=out_expo,
+        )
+        invoke(self.y_animator.pause, delay=self.fall_after)
 
 
 @lru_cache(maxsize=None)
