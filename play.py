@@ -323,7 +323,7 @@ class World:
             block.delete()
         self.blocks = list()
 
-    def update_manual(self, player_position_new, player_position_old):
+    def update_positions(self, player_position_new, player_position_old):
         points_wanted_2d = points_in_2dcircle(
             radius=self.render_size,
             x_offset=int(player_position_new[X]),
@@ -336,7 +336,10 @@ class World:
                 x_offset=int(player_position_old[X]),
                 y_offset=int(player_position_old[Z]),
             )
+        self.update_blocks(points_wanted_2d, points_current_2d)
+        self.update_enemies_enabled(points_wanted_2d)
 
+    def update_blocks(self, points_wanted_2d, points_current_2d):
         points_del_2d = points_current_2d.difference(points_wanted_2d)
         for block in reversed(self.blocks):
             x, _, z = block.get_map_position()
@@ -348,6 +351,14 @@ class World:
         for point in points_add_2d:
             self.render_block(position=[point[X], -1, point[Z_2D]])
         logger.debug(f"Total blocks {len(self.blocks)}")
+
+    def update_enemies_enabled(self, points_current_2d):
+        for enemy in self.enemies:
+            x, _, z = pos_to_xyz(enemy.position)
+            if any(x == point[X] and z == point[Z_2D] for point in points_current_2d):
+                enemy.enable()
+            else:
+                enemy.disable()
 
     def render_block(self, position):
         x, y, z = pos_to_xyz(position)
@@ -373,7 +384,7 @@ class World:
         if any(y - block.world_height > 1 for block in blocks_around):
             self.render_block(position=(x, y - 1, z))
 
-    def click_handler(self):
+    def block_click_handler(self):
         for block in reversed(self.blocks):
             if block.destroy:
                 self.blocks.remove(block)
@@ -494,9 +505,9 @@ class UrsinaMC(MainMenuUrsina):
         elif self.game_state == GameState.PLAYING:
             player = self.world.player
             if player.has_new_position():
-                self.world.update_manual(player.position, player.position_previous)
+                self.world.update_positions(player.position, player.position_previous)
                 player.position_previous = player.position
-            self.world.click_handler()
+            self.world.block_click_handler()
         return super()._update(task)
 
 
