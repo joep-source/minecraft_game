@@ -132,15 +132,15 @@ class Enemy(Entity):
             return raycast(origin=origin, direction=self.forward, distance=0.5, ignore=(self,))
 
         self.look_at_2d(self.player_ref.position, "y")
-        feet_ray = _raycast(origin=self.position + Vec3(0, 0.5, 0))
-        head_ray = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0))
+        ray_feet = _raycast(origin=self.position + Vec3(0, 0.5, 0))
+        ray_head = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0))
         distance_to_player = distance_xz(self.player_ref.position, self.position)
         nearby_player = True if distance_to_player < 40 else False
         attack_player = True if distance_to_player < 4 else False
 
-        if head_ray.hit:
+        if ray_head.hit:
             pass
-        elif attack_player or feet_ray.hit:
+        elif attack_player or ray_feet.hit:
             self.jump()
         elif nearby_player:
             self.position += self.forward * self.speed * utime.dt
@@ -148,20 +148,14 @@ class Enemy(Entity):
         self.update_gravity()
 
     def update_gravity(self):
-        ray = raycast(self.world_position + (0, self.height, 0), self.down, ignore=(self,))
-        if ray.distance <= self.height + 0.1:
-            if not self.grounded:
-                self.air_time = 0
+        ray_down = raycast(self.world_position + (0, self.height, 0), self.down, ignore=(self,))
+        if ray_down.distance <= self.height + 0.1:
             self.grounded = True
-            # make sure it's not a wall and that the point is not too far up
-            if ray.world_normal.y > 0.7 and ray.world_point.y - self.world_y < 0.5:  # walk up slope
-                self.y = ray.world_point[1]
+            self.air_time = 0
             return
-        else:
-            self.grounded = False
-
-        # if not on ground and not on way up in jump, fall
-        self.y -= min(self.air_time, ray.distance - 0.05) * utime.dt * 100
+        # falling down
+        self.grounded = False
+        self.y -= min(self.air_time, ray_down.distance - 0.05) * utime.dt * 100
         self.air_time += utime.dt * 0.25
 
     def jump(self):
@@ -304,7 +298,7 @@ class World:
             position=(0, -1.9, 0),
             visible=False,
         )
-        self.update_manual(position_start, None)
+        self.update_positions(position_start, None)
 
     def init_player(self, position_start, speed, allow_fly=False):
         self.player = Player(position_start=position_start, speed=speed, allow_fly=True)
