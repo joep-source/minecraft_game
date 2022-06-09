@@ -9,17 +9,23 @@ from typing import List, Tuple, Union
 import numpy as np
 from matplotlib import pyplot as plt
 from ursina.camera import instance as camera
-from ursina.color import color, gray, light_gray
+from ursina.color import color, gray, light_gray, violet
+from ursina.curve import out_expo
 from ursina.entity import Entity
+from ursina.input_handler import held_keys
+from ursina.main import time as utime
 from ursina.models.procedural.grid import Grid
 from ursina.mouse import instance as mouse
 from ursina.prefabs.button import Button
 from ursina.prefabs.first_person_controller import FirstPersonController
 from ursina.prefabs.health_bar import HealthBar
 from ursina.prefabs.sky import Sky
+from ursina.raycaster import raycast
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
-from ursina.ursinastuff import destroy
+from ursina.ursinamath import distance_xz
+from ursina.ursinastuff import destroy, invoke
+from ursina.vec3 import Vec3
 from ursina.window import instance as window
 
 import conf
@@ -74,12 +80,14 @@ class Player(FirstPersonController):
             self.gravity = 1
         if key == "i":
             logger.info(f"Player position is {self.position}, {self.speed=}")
+        if key == "e" and self.allow_fly:
+            self.gravity = 0
+
+    def update(self):
         if self.allow_fly:
-            if key == "e":
-                self.gravity = 0
-                self.y += 1
-            if key == "q" and self.gravity == 0:
-                self.y -= 1
+            self.direction = Vec3(self.up * (held_keys["e"] - held_keys["q"])).normalized()
+            self.position += self.direction * self.speed * utime.dt
+        super().update()
 
     def has_new_position(self) -> bool:
         pos_cur = pos_to_xyz(self.position)
@@ -88,6 +96,79 @@ class Player(FirstPersonController):
             logger.info(f"Player position new {pos_to_xyz(self.position)}")
             return True
         return False
+
+
+class Enemy(Entity):
+    # Based on FirstPersonController but without camera
+    player_ref: Player
+    speed = 4
+    height = 2
+    grounded = False
+    jump_height = 2
+    jump_up_duration = 0.5
+    fall_after = 0.35
+    air_time = 0
+
+    def __init__(self, player):
+        self.player_ref = player
+        position = player.position
+        position[Y] += 10
+        super().__init__(
+            model="cube",
+            color=violet,
+            scale_y=self.height,
+            origin_y=-0.5,
+            collider="box",
+            position=position,
+        )
+
+    def delete(self):
+        logger.info("Delete Enemy")
+        self.enabled = False
+        self.destroy = True
+
+    def update(self):
+        def _raycast(origin):
+            return raycast(origin=origin, direction=self.forward, distance=0.5, ignore=(self,))
+
+        self.look_at_2d(self.player_ref.position, "y")
+        ray_feet = _raycast(origin=self.position + Vec3(0, 0.5, 0))
+        ray_head = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0))
+        distance_to_player = distance_xz(self.player_ref.position, self.position)
+        nearby_player = True if distance_to_player < 40 else False
+        attack_player = True if distance_to_player < 4 else False
+
+        if ray_head.hit:
+            pass
+        elif attack_player or ray_feet.hit:
+            self.jump()
+        elif nearby_player:
+            self.position += self.forward * self.speed * utime.dt
+
+        self.update_gravity()
+
+    def update_gravity(self):
+        ray_down = raycast(self.world_position + (0, self.height, 0), self.down, ignore=(self,))
+        if ray_down.distance <= self.height + 0.1:
+            self.grounded = True
+            self.air_time = 0
+            return
+        # falling down
+        self.grounded = False
+        self.y -= min(self.air_time, ray_down.distance - 0.05) * utime.dt * 100
+        self.air_time += utime.dt * 0.25
+
+    def jump(self):
+        if not self.grounded:
+            return
+        self.grounded = False
+        self.animate_y(
+            self.y + self.jump_height,
+            self.jump_up_duration,
+            resolution=int(1 // utime.dt),
+            curve=out_expo,
+        )
+        invoke(self.y_animator.pause, delay=self.fall_after)
 
 
 @lru_cache(maxsize=None)
@@ -119,7 +200,6 @@ class Block(Button):
     create_position = None
     fix_pos: int
 
-    # By setting the parent to scene and the model to 'cube' it becomes a 3d button.
     def __init__(
         self,
         position: List[int],
@@ -201,6 +281,8 @@ class MiniMap:
 
 class World:
     render_size: int
+    player: Player
+    enemies: List[Enemy] = list()
     blocks: List[Block] = list()
 
     def __init__(self, world_map2d: Map2D, world_size: int, position_start, render_size: int):
@@ -216,15 +298,26 @@ class World:
             position=(0, -1.9, 0),
             visible=False,
         )
-        self.update(position_start, None)
+        self.update_positions(position_start, None)
+
+    def init_player(self, position_start, speed, allow_fly=False):
+        self.player = Player(position_start=position_start, speed=speed, allow_fly=True)
+
+    def init_enemies(self, total_enemies=1):
+        self.enemies = [Enemy(player=self.player) for _ in range(total_enemies)]
 
     def delete(self):
         logger.info("Delete World")
+        self.player.delete()
+        self.player = None
+        for enemy in self.enemies:
+            enemy.delete()
+        self.enemies = list()
         for block in self.blocks:
             block.delete()
         self.blocks = list()
 
-    def update(self, player_position_new, player_position_old):
+    def update_positions(self, player_position_new, player_position_old):
         points_wanted_2d = points_in_2dcircle(
             radius=self.render_size,
             x_offset=int(player_position_new[X]),
@@ -237,7 +330,10 @@ class World:
                 x_offset=int(player_position_old[X]),
                 y_offset=int(player_position_old[Z]),
             )
+        self.update_blocks(points_wanted_2d, points_current_2d)
+        self.update_enemies_enabled(points_wanted_2d)
 
+    def update_blocks(self, points_wanted_2d, points_current_2d):
         points_del_2d = points_current_2d.difference(points_wanted_2d)
         for block in reversed(self.blocks):
             x, _, z = block.get_map_position()
@@ -249,6 +345,14 @@ class World:
         for point in points_add_2d:
             self.render_block(position=[point[X], -1, point[Z_2D]])
         logger.debug(f"Total blocks {len(self.blocks)}")
+
+    def update_enemies_enabled(self, points_current_2d):
+        for enemy in self.enemies:
+            x, _, z = pos_to_xyz(enemy.position)
+            if any(x == point[X] and z == point[Z_2D] for point in points_current_2d):
+                enemy.enable()
+            else:
+                enemy.disable()
 
     def render_block(self, position):
         x, y, z = pos_to_xyz(position)
@@ -274,7 +378,7 @@ class World:
         if any(y - block.world_height > 1 for block in blocks_around):
             self.render_block(position=(x, y - 1, z))
 
-    def click_handler(self):
+    def block_click_handler(self):
         for block in reversed(self.blocks):
             if block.destroy:
                 self.blocks.remove(block)
@@ -290,7 +394,6 @@ class World:
 class UrsinaMC(MainMenuUrsina):
     world_map2d: Map2D = None
     world = None
-    player = None
     minimap = None
     game_background = None
     loading_step: int = 0
@@ -339,13 +442,15 @@ class UrsinaMC(MainMenuUrsina):
         elif self.loading_step == 50:
             self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
             self.minimap.map.visible = False
+        elif self.loading_step == 80:
+            self.world.init_player(
+                position_start=self.start_position, speed=self.speed, allow_fly=True
+            )
+            self.world.init_enemies()
         elif self.loading_step == 90:
             destroy(self.loading_bar)
             self.loading_bar = None
             self.minimap.map.visible = True
-            self.player = Player(
-                position_start=self.start_position, speed=self.speed, allow_fly=True
-            )
             super().start_game()
             self.game_state = GameState.PLAYING
             logger.info("Game playing")
@@ -366,8 +471,6 @@ class UrsinaMC(MainMenuUrsina):
         self.world_map2d = None
         self.world.delete()
         self.world = None
-        self.player.delete()
-        self.player = None
         self.minimap.delete()
         self.minimap = None
         destroy(self.game_background)
@@ -394,10 +497,11 @@ class UrsinaMC(MainMenuUrsina):
         if self.game_state == GameState.STARTING:
             self.load_game_sequentially()
         elif self.game_state == GameState.PLAYING:
-            if self.player.has_new_position():
-                self.world.update(self.player.position, self.player.position_previous)
-                self.player.position_previous = self.player.position
-            self.world.click_handler()
+            player = self.world.player
+            if player.has_new_position():
+                self.world.update_positions(player.position, player.position_previous)
+                player.position_previous = player.position
+            self.world.block_click_handler()
         return super()._update(task)
 
 
