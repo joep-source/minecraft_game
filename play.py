@@ -8,12 +8,12 @@ from typing import List, Tuple, Union
 
 import numpy as np
 from matplotlib import pyplot as plt
-from ursina.main import time as utime
 from ursina.camera import instance as camera
 from ursina.color import color, gray, light_gray, violet
 from ursina.curve import out_expo
 from ursina.entity import Entity
 from ursina.input_handler import held_keys
+from ursina.main import time as utime
 from ursina.models.procedural.grid import Grid
 from ursina.mouse import instance as mouse
 from ursina.prefabs.button import Button
@@ -121,6 +121,11 @@ class Enemy(Entity):
             collider="box",
             position=position,
         )
+
+    def delete(self):
+        logger.info("Delete Enemy")
+        self.enabled = False
+        self.destroy = True
 
     def update(self):
         def _raycast(origin):
@@ -282,6 +287,8 @@ class MiniMap:
 
 class World:
     render_size: int
+    player: Player
+    enemies: List[Enemy] = list()
     blocks: List[Block] = list()
 
     def __init__(self, world_map2d: Map2D, world_size: int, position_start, render_size: int):
@@ -297,15 +304,26 @@ class World:
             position=(0, -1.9, 0),
             visible=False,
         )
-        self.update(position_start, None)
+        self.update_manual(position_start, None)
+
+    def init_player(self, position_start, speed, allow_fly=False):
+        self.player = Player(position_start=position_start, speed=speed, allow_fly=True)
+
+    def init_enemies(self, total_enemies=1):
+        self.enemies = [Enemy(player=self.player) for _ in range(total_enemies)]
 
     def delete(self):
         logger.info("Delete World")
+        self.player.delete()
+        self.player = None
+        for enemy in self.enemies:
+            enemy.delete()
+        self.enemies = list()
         for block in self.blocks:
             block.delete()
         self.blocks = list()
 
-    def update(self, player_position_new, player_position_old):
+    def update_manual(self, player_position_new, player_position_old):
         points_wanted_2d = points_in_2dcircle(
             radius=self.render_size,
             x_offset=int(player_position_new[X]),
@@ -371,7 +389,6 @@ class World:
 class UrsinaMC(MainMenuUrsina):
     world_map2d: Map2D = None
     world = None
-    player = None
     minimap = None
     game_background = None
     loading_step: int = 0
@@ -420,14 +437,15 @@ class UrsinaMC(MainMenuUrsina):
         elif self.loading_step == 50:
             self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
             self.minimap.map.visible = False
+        elif self.loading_step == 80:
+            self.world.init_player(
+                position_start=self.start_position, speed=self.speed, allow_fly=True
+            )
+            self.world.init_enemies()
         elif self.loading_step == 90:
             destroy(self.loading_bar)
             self.loading_bar = None
             self.minimap.map.visible = True
-            self.player = Player(
-                position_start=self.start_position, speed=self.speed, allow_fly=True
-            )
-            Enemy(player=self.player)
             super().start_game()
             self.game_state = GameState.PLAYING
             logger.info("Game playing")
@@ -448,8 +466,6 @@ class UrsinaMC(MainMenuUrsina):
         self.world_map2d = None
         self.world.delete()
         self.world = None
-        self.player.delete()
-        self.player = None
         self.minimap.delete()
         self.minimap = None
         destroy(self.game_background)
@@ -476,9 +492,10 @@ class UrsinaMC(MainMenuUrsina):
         if self.game_state == GameState.STARTING:
             self.load_game_sequentially()
         elif self.game_state == GameState.PLAYING:
-            if self.player.has_new_position():
-                self.world.update(self.player.position, self.player.position_previous)
-                self.player.position_previous = self.player.position
+            player = self.world.player
+            if player.has_new_position():
+                self.world.update_manual(player.position, player.position_previous)
+                player.position_previous = player.position
             self.world.click_handler()
         return super()._update(task)
 
