@@ -22,6 +22,7 @@ from ursina.prefabs.health_bar import HealthBar
 from ursina.prefabs.sky import Sky
 from ursina.raycaster import raycast
 from ursina.scene import instance as scene
+from ursina.text import Text
 from ursina.texture_importer import load_texture
 from ursina.ursinamath import distance_xz
 from ursina.ursinastuff import destroy, invoke
@@ -246,37 +247,46 @@ class Block(Button):
 
 class MiniMap:
     map: Entity
+    info_text: Text
 
-    def __init__(self, world_map2d, seed, world_size):
-        self.world_map2d = world_map2d
-        self.seed = seed
-        self.world_size = world_size
-        self.save_minimap()
-        self.map = self.create_minimap()
+    def __init__(self, world_map2d, seed):
+        self.save_minimap(world_map2d, seed)
+        self.map = Entity(
+            parent=camera.ui,
+            model="quad",
+            scale=(0.2, 0.2),
+            origin=(-0.5, 0.5),
+            position=window.top_left,
+            texture=self.get_minimap_path(seed),
+        )
+        self.get_info_text = lambda x, y: f"| {x=}, {y=} | fps={str(int(1//utime.dt))} "
+        self.info_text = Text(
+            parent=camera.ui,
+            text=self.get_info_text(None, None),
+            origin=(0.5, 0.6),
+            position=window.top_right,
+            eternal=True,
+            ignore=False,
+        )
 
     def delete(self):
         logger.info("Delete MiniMap")
         destroy(self.map)
+        destroy(self.info_text)
 
-    def create_minimap(self):
-        return Entity(
-            parent=camera.ui,
-            model="quad",
-            scale=(0.25, 0.25),
-            x=0.75,
-            y=0.35,
-            texture=self.get_minimap_path(),
-        )
+    def update_info_text(self, position):
+        x, _, z = pos_to_xyz(position=position)
+        self.info_text.text = self.get_info_text(x, z)
 
     @timeit
-    def save_minimap(self):
+    def save_minimap(self, world_map2d, seed):
         """Save minimap as PNG image"""
-        path = self.get_minimap_path()
-        img = np.array(world_map_colors(self.world_map2d))
+        path = self.get_minimap_path(seed)
+        img = np.array(world_map_colors(world_map2d))
         plt.imsave(path, img)
 
-    def get_minimap_path(self):
-        return path.join("maps", f"seed_{self.seed}.png")
+    def get_minimap_path(self, seed):
+        return path.join("maps", f"seed_{seed}.png")
 
 
 class World:
@@ -440,8 +450,9 @@ class UrsinaMC(MainMenuUrsina):
                 self.world_map2d, self.world_size, self.start_position, self.render_size
             )
         elif self.loading_step == 50:
-            self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
+            self.minimap = MiniMap(self.world_map2d, self.seed)
             self.minimap.map.visible = False
+            self.minimap.info_text.visible = False
         elif self.loading_step == 80:
             self.world.init_player(
                 position_start=self.start_position, speed=self.speed, allow_fly=True
@@ -451,6 +462,7 @@ class UrsinaMC(MainMenuUrsina):
             destroy(self.loading_bar)
             self.loading_bar = None
             self.minimap.map.visible = True
+            self.minimap.info_text.visible = True
             super().start_game()
             self.game_state = GameState.PLAYING
             logger.info("Game playing")
@@ -501,6 +513,7 @@ class UrsinaMC(MainMenuUrsina):
             if player.has_new_position():
                 self.world.update_positions(player.position, player.position_previous)
                 player.position_previous = player.position
+            self.minimap.update_info_text(player.position)
             self.world.block_click_handler()
         return super()._update(task)
 
@@ -509,10 +522,10 @@ if __name__ == "__main__":
     setup_logger(logger=logger)
     app = UrsinaMC()
 
-    window.title = "Mincraft Ursina"
+    window.title = "Minecraft Ursina"
     window.borderless = True
     window.fullscreen = False
-    window.exit_button.visible = False
-    window.fps_counter.enabled = True
+    window.exit_button.enabled = False
+    window.fps_counter.enabled = False
 
     app.run()
