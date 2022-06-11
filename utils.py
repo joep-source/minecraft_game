@@ -1,7 +1,7 @@
 import logging
 import time
 from itertools import product
-from typing import List, Set, Tuple
+from typing import Any, Callable, List, Set, Tuple
 
 import conf
 
@@ -31,7 +31,7 @@ def points_in_2dcircle(radius: int, x_offset: int = 0, y_offset: int = 0) -> Set
     return all_points
 
 
-def setup_logger(logger, level: int = logging.DEBUG):
+def setup_logger(logger, level: int = logging.DEBUG) -> None:
     logger.setLevel(level)
 
     file_handler = logging.FileHandler(conf.LOGGER_FILE_NAME)
@@ -47,8 +47,8 @@ def setup_logger(logger, level: int = logging.DEBUG):
     logger.addHandler(stream_handler)
 
 
-def timeit(method):
-    def timed(*args, **kw):
+def timeit(method: Callable) -> Callable:
+    def timed(*args, **kw) -> Any:
         time_start = time.time()
         result = method(*args, **kw)
         time_end = time.time()

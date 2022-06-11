@@ -4,12 +4,12 @@ import sys
 from enum import Enum
 from functools import lru_cache
 from os import path
-from typing import List, Tuple, Union
+from typing import List, Set, Tuple, Union
 
 import numpy as np
 from matplotlib import pyplot as plt
 from ursina.camera import instance as camera
-from ursina.color import color, gray, light_gray, red, violet
+from ursina.color import color, gray, light_gray, red
 from ursina.curve import out_expo
 from ursina.entity import Entity
 from ursina.input_handler import held_keys
@@ -22,7 +22,6 @@ from ursina.prefabs.health_bar import HealthBar
 from ursina.prefabs.sky import Sky
 from ursina.raycaster import raycast
 from ursina.scene import instance as scene
-from ursina.text import Text
 from ursina.texture_importer import load_texture
 from ursina.ursinamath import distance_xz
 from ursina.ursinastuff import destroy, invoke
@@ -73,7 +72,7 @@ class Player(FirstPersonController):
     def delete(self):
         logger.info("Delete Player")
         self.enabled = False
-        self.destroy = True
+        destroy(self)
 
     def input(self, key):
         if key == "space":
@@ -102,38 +101,48 @@ class Player(FirstPersonController):
 class Enemy(Entity):
     # Based on FirstPersonController but without camera
     player_ref: Player
-    speed = 4
-    height = 2
-    grounded = False
-    jump_height = 2
-    jump_up_duration = 0.5
-    fall_after = 0.35
-    air_time = 0
+    hp: int
+    max_hp: int = 10
+    speed: int = 4
+    height: int = 2
+    jump_height: float = 1.5
+    grounded: bool = False
+    jump_up_duration: float = 0.5
+    fall_after: float = 0.35
+    air_time: float = 0
+    hp_scale: float = 1.5
 
     def __init__(self, player):
+        self.hp = self.max_hp
         self.player_ref = player
         position = player.position
-        position[Y] += 10
         super().__init__(
-            model="cube",
-            color=violet,
-            scale_y=self.height,
-            origin_y=-0.5,
-            collider="box",
+            model="enemy",
+            texture="enemy",
+            scale=0.95,
+            collider="mesh",
             position=position,
+        )
+        self.health_bar = Entity(
+            parent=self, y=2.8, model="cube", color=red, world_scale=(self.hp_scale, 0.1, 0.1)
         )
 
     def delete(self):
         logger.info("Delete Enemy")
-        self.enabled = False
-        self.destroy = True
+        _destroy = lambda: destroy(self)
+        self.rotation_z = 70
+        invoke(_destroy, delay=0.5)
+
+    def input(self, key):
+        if self.hovered and key == "left mouse down":
+            mouse.hovered_entity.hit()
 
     def update(self):
         def _raycast(origin):
             return raycast(origin=origin, direction=self.forward, distance=0.5, ignore=(self,))
 
         self.look_at_2d(self.player_ref.position, "y")
-        ray_feet = _raycast(origin=self.position + Vec3(0, 0.5, 0))
+        ray_feet = _raycast(origin=self.position + Vec3(0, 0.1, 0))
         ray_head = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0))
         distance_to_player = distance_xz(self.player_ref.position, self.position)
         nearby_player = True if distance_to_player < 40 else False
@@ -147,17 +156,18 @@ class Enemy(Entity):
             self.position += self.forward * self.speed * utime.dt
 
         self.update_gravity()
+        self.health_bar.alpha = max(0, self.health_bar.alpha - utime.dt)
+        self.rotation_y -= 180  # Correct facing direction of model object
 
     def update_gravity(self):
         ray_down = raycast(self.world_position + (0, self.height, 0), self.down, ignore=(self,))
         if ray_down.distance <= self.height + 0.1:
             self.grounded = True
             self.air_time = 0
-            return
-        # falling down
-        self.grounded = False
-        self.y -= min(self.air_time, ray_down.distance - 0.05) * utime.dt * 100
-        self.air_time += utime.dt * 0.25
+        else:
+            self.grounded = False
+            self.y -= min(self.air_time, ray_down.distance - 0.05) * utime.dt * 100
+            self.air_time += utime.dt * 0.25
 
     def jump(self):
         if not self.grounded:
@@ -171,10 +181,16 @@ class Enemy(Entity):
         )
         invoke(self.y_animator.pause, delay=self.fall_after)
 
+    def hit(self):
+        self.blink(red)
+        self.hp -= 1
+        self.health_bar.world_scale_x = self.hp / self.max_hp * self.hp_scale
+        self.health_bar.alpha = 1
+
 
 @lru_cache(maxsize=None)
 def get_texture(biome: Union[str, None]):
-    get_file = lambda name: path.join("textures", name)
+    get_file = lambda name: path.join("assets", name)
     if biome == Biomes.SEA:
         return load_texture(get_file("sea.png"))
     elif biome == Biomes.LAKE:
@@ -239,10 +255,10 @@ class Block(Button):
 
     def input(self, key):
         if self.hovered:
-            if key == "left mouse down" and self.biome not in WATER_BLOCKS:
-                self.create_position = self.position + mouse.normal
-            if key == "right mouse down" and self.destroyable:
+            if key == "left mouse down" and self.destroyable:
                 self.delete()
+            if key == "right mouse down" and self.biome not in WATER_BLOCKS:
+                self.create_position = self.position + mouse.normal
 
 
 class MiniMap:
@@ -331,6 +347,12 @@ class World:
             block.delete()
         self.blocks = list()
 
+    def update_enemies(self):
+        for enemy in reversed(self.enemies):
+            if enemy.hp <= 0:
+                self.enemies.remove(enemy)
+                enemy.delete()
+
     def update_positions(self, player_position_new, player_position_old):
         points_wanted_2d = points_in_2dcircle(
             radius=self.render_size,
@@ -347,7 +369,9 @@ class World:
         self.update_blocks(points_wanted_2d, points_current_2d)
         self.update_enemies_enabled(points_wanted_2d)
 
-    def update_blocks(self, points_wanted_2d, points_current_2d):
+    def update_blocks(
+        self, points_wanted_2d: Set[Tuple[int, int]], points_current_2d: Set[Tuple[int, int]]
+    ):
         points_del_2d = points_current_2d.difference(points_wanted_2d)
         for block in reversed(self.blocks):
             x, _, z = block.get_map_position()
@@ -360,7 +384,7 @@ class World:
             self.render_block(position=[point[X], -1, point[Z_2D]])
         logger.debug(f"Total blocks {len(self.blocks)}")
 
-    def update_enemies_enabled(self, points_current_2d):
+    def update_enemies_enabled(self, points_current_2d: Set[Tuple[int, int]]):
         for enemy in self.enemies:
             x, _, z = pos_to_xyz(enemy.position)
             if any(x == point[X] and z == point[Z_2D] for point in points_current_2d):
@@ -461,7 +485,7 @@ class UrsinaMC(MainMenuUrsina):
             self.world.init_player(
                 position_start=self.start_position, speed=self.speed, allow_fly=True
             )
-            self.world.init_enemies(total_enemies=0)
+            self.world.init_enemies(total_enemies=1)
         elif self.loading_step == 90:
             destroy(self.loading_bar)
             self.loading_bar = None
@@ -513,6 +537,7 @@ class UrsinaMC(MainMenuUrsina):
         if self.game_state == GameState.STARTING:
             self.load_game_sequentially()
         elif self.game_state == GameState.PLAYING:
+            self.world.update_enemies()
             player = self.world.player
             if player.has_new_position():
                 self.world.update_positions(player.position, player.position_previous)
