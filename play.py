@@ -9,7 +9,7 @@ from typing import List, Tuple, Union
 import numpy as np
 from matplotlib import pyplot as plt
 from ursina.camera import instance as camera
-from ursina.color import color, gray, light_gray, violet
+from ursina.color import color, gray, light_gray, violet, red
 from ursina.curve import out_expo
 from ursina.entity import Entity
 from ursina.input_handler import held_keys
@@ -247,18 +247,32 @@ class Block(Button):
 
 class MiniMap:
     map: Entity
+    player_icon: Entity
     info_text: Text
+    world_size: int
 
-    def __init__(self, world_map2d, seed):
+    def __init__(self, world_map2d, seed, world_size):
+        self.world_size = world_size
         self.save_minimap(world_map2d, seed)
         self.map = Entity(
             parent=camera.ui,
             model="quad",
-            scale=(0.2, 0.2),
+            scale=(0.3, 0.3),
             origin=(-0.5, 0.5),
             position=window.top_left,
             texture=self.get_minimap_path(seed),
         )
+        self.player_icon_max = 0.95
+        self.player_icon = Entity(
+            parent=self.map,
+            model="sphere",
+            scale=0.025,
+            origin=(-1, 1),
+            z=-999,
+            texture="white_cube",
+            color=red,
+        )
+
         self.get_info_text = lambda x, y: f"| {x=}, {y=} | fps={str(int(1//utime.dt))} "
         self.info_text = Text(
             parent=camera.ui,
@@ -272,11 +286,15 @@ class MiniMap:
     def delete(self):
         logger.info("Delete MiniMap")
         destroy(self.map)
+        destroy(self.player_icon)
         destroy(self.info_text)
 
-    def update_info_text(self, position):
+    def update_positions(self, position):
         x, _, z = pos_to_xyz(position=position)
         self.info_text.text = self.get_info_text(x, z)
+        self.player_icon.x = x / self.world_size * self.player_icon_max
+        self.player_icon.y = -z / self.world_size * self.player_icon_max
+        print(self.player_icon.x, self.player_icon.y)
 
     @timeit
     def save_minimap(self, world_map2d, seed):
@@ -450,14 +468,14 @@ class UrsinaMC(MainMenuUrsina):
                 self.world_map2d, self.world_size, self.start_position, self.render_size
             )
         elif self.loading_step == 50:
-            self.minimap = MiniMap(self.world_map2d, self.seed)
+            self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
             self.minimap.map.visible = False
             self.minimap.info_text.visible = False
         elif self.loading_step == 80:
             self.world.init_player(
                 position_start=self.start_position, speed=self.speed, allow_fly=True
             )
-            self.world.init_enemies()
+            self.world.init_enemies(total_enemies=0)
         elif self.loading_step == 90:
             destroy(self.loading_bar)
             self.loading_bar = None
@@ -513,7 +531,7 @@ class UrsinaMC(MainMenuUrsina):
             if player.has_new_position():
                 self.world.update_positions(player.position, player.position_previous)
                 player.position_previous = player.position
-            self.minimap.update_info_text(player.position)
+                self.minimap.update_positions(player.position)
             self.world.block_click_handler()
         return super()._update(task)
 
