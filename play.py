@@ -9,7 +9,7 @@ from typing import List, Tuple, Union
 import numpy as np
 from matplotlib import pyplot as plt
 from ursina.camera import instance as camera
-from ursina.color import color, gray, light_gray, violet, red
+from ursina.color import color, gray, light_gray, red, violet
 from ursina.curve import out_expo
 from ursina.entity import Entity
 from ursina.input_handler import held_keys
@@ -248,7 +248,6 @@ class Block(Button):
 class MiniMap:
     map: Entity
     player_icon: Entity
-    info_text: Text
     world_size: int
 
     def __init__(self, world_map2d, seed, world_size):
@@ -273,34 +272,21 @@ class MiniMap:
             color=red,
         )
 
-        self.get_info_text = lambda x, y: f"| {x=}, {y=} | fps={str(int(1//utime.dt))} "
-        self.info_text = Text(
-            parent=camera.ui,
-            text=self.get_info_text(None, None),
-            origin=(0.5, 0.6),
-            position=window.top_right,
-            eternal=True,
-            ignore=False,
-        )
-
     def delete(self):
         logger.info("Delete MiniMap")
         destroy(self.map)
         destroy(self.player_icon)
-        destroy(self.info_text)
 
     def update_positions(self, position):
         x, _, z = pos_to_xyz(position=position)
-        self.info_text.text = self.get_info_text(x, z)
         self.player_icon.x = x / self.world_size * self.player_icon_max
-        self.player_icon.y = -z / self.world_size * self.player_icon_max
-        print(self.player_icon.x, self.player_icon.y)
+        self.player_icon.y = z / self.world_size * self.player_icon_max - self.player_icon_max
 
     @timeit
     def save_minimap(self, world_map2d, seed):
         """Save minimap as PNG image"""
         path = self.get_minimap_path(seed)
-        img = np.array(world_map_colors(world_map2d))
+        img = np.rot90(np.array(world_map_colors(world_map2d)))
         plt.imsave(path, img)
 
     def get_minimap_path(self, seed):
@@ -470,7 +456,7 @@ class UrsinaMC(MainMenuUrsina):
         elif self.loading_step == 50:
             self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
             self.minimap.map.visible = False
-            self.minimap.info_text.visible = False
+            self.minimap.player_icon.visible = False
         elif self.loading_step == 80:
             self.world.init_player(
                 position_start=self.start_position, speed=self.speed, allow_fly=True
@@ -480,7 +466,7 @@ class UrsinaMC(MainMenuUrsina):
             destroy(self.loading_bar)
             self.loading_bar = None
             self.minimap.map.visible = True
-            self.minimap.info_text.visible = True
+            self.minimap.player_icon.visible = True
             super().start_game()
             self.game_state = GameState.PLAYING
             logger.info("Game playing")
@@ -544,6 +530,6 @@ if __name__ == "__main__":
     window.borderless = True
     window.fullscreen = False
     window.exit_button.enabled = False
-    window.fps_counter.enabled = False
+    window.fps_counter.enabled = True
 
     app.run()

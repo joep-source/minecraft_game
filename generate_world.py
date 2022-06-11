@@ -72,7 +72,7 @@ def generate_noise_map(shape: Tuple, seed: int, **params):
     def _gen_noise(x, y, **params):
         return noise.snoise3(x / shape[0], y / shape[1], z=seed, **params)
 
-    noises = [_gen_noise(y, x, **params) for y, x in np.ndindex(shape)]
+    noises = [_gen_noise(x, y, **params) for y, x in np.ndindex(shape)]
     return normalize(np.array(noises).reshape(shape))
 
 
@@ -84,9 +84,9 @@ def world_map_colors(world_map: Map2D, border=True) -> List[List[Tuple[float, fl
     world_map = np.vectorize(get_biome_value)(world_map)
 
     if border:
-        world_map = _gen_border(world_map, 1, "black")
-        world_map = _gen_border(world_map, 5, "gold")
-        world_map = _gen_border(world_map, 2, "black")
+        world_map = _gen_border(world_map, 1, "gray")
+        world_map = _gen_border(world_map, 5, "goldenrod")
+        world_map = _gen_border(world_map, 2, "gray")
 
     block_colors = [colors.to_rgb(str(block)) for block in np.nditer(world_map)]
     world_map_colors = np.array(block_colors).reshape(world_map.shape + (3,))
