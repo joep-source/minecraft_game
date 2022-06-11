@@ -1,10 +1,10 @@
-# Ursina Minecraft Game
+# Minecraft themed FPS
 
 [![CI](https://github.com/joep-source/minecraft_game/actions/workflows/python-app.yml/badge.svg?branch=main)](https://github.com/joep-source/minecraft_game/actions/workflows/python-app.yml)
 [![License: MIT](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/joep-source/minecraft_game/blob/main/LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A Minecraft-based game with random generated island maps, built with Ursina Engine. 
+A Minecraft themed FPS game on random generated island maps, built with the Ursina Engine. 
 
 
 ## Getting started
@@ -23,6 +23,8 @@ Start:
     - `pip install pyqt5`
     - `sudo apt-get install python3-tk` (Unix systems)
 
+## Sources
+- Enemy mob object [Necromancer](https://skfb.ly/6RprX) by omargabagu.
 
 ## License
 MIT
