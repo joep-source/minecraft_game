@@ -1,6 +1,7 @@
 import logging
 import random
 import sys
+from copy import deepcopy
 from enum import Enum
 from functools import lru_cache
 from os import path
@@ -9,7 +10,7 @@ from typing import List, Set, Tuple, Union
 import numpy as np
 from matplotlib import pyplot as plt
 from ursina.camera import instance as camera
-from ursina.color import color, gray, light_gray, red
+from ursina.color import color, gray, light_gray, red, yellow
 from ursina.curve import out_expo
 from ursina.entity import Entity
 from ursina.input_handler import held_keys
@@ -60,6 +61,11 @@ class GameState(Enum):
 class Player(FirstPersonController):
     position: List
     position_previous: List
+    health_bar: HealthBar
+    hp: int
+    max_hp: int = 100
+    health_bar_len = 0.6
+    health_bar_width = 0.02
 
     def __init__(self, position_start, speed, allow_fly=False):
         super().__init__()
@@ -67,11 +73,25 @@ class Player(FirstPersonController):
         self.speed = speed
         position_start[Y] += 3  # Let player fall on the map from sky
         self.position = self.position_previous = position_start
+        self.hp = self.max_hp
+        position = deepcopy(window.bottom)
+        position[X] -= self.health_bar_len / 2
+        position[Z_2D] += self.health_bar_width * 2
+        self.health_bar = HealthBar(
+            max_value=self.max_hp,
+            value=self.hp,
+            scale=(self.health_bar_len, self.health_bar_width),
+            position=position,
+            roundness=0.5,
+            bar_color=red,
+        )
+        self.health_bar.text_entity.text = ""
         logger.info(f"Player position start {self.position}")
 
     def delete(self):
         logger.info("Delete Player")
         self.enabled = False
+        destroy(self.health_bar)
         destroy(self)
 
     def input(self, key):
@@ -97,23 +117,33 @@ class Player(FirstPersonController):
             return True
         return False
 
+    def hit(self, damage=10):
+        self.hp -= damage
+        self.health_bar.value = self.hp
+        self.health_bar.text_entity.text = ""
+        self.health_bar.bar.blink(yellow, duration=0.3)
+
 
 class Enemy(Entity):
     # Based on FirstPersonController but without camera
     player_ref: Player
+    health_bar: Entity
     hp: int
     max_hp: int = 10
     speed: int = 4
     height: int = 2
     jump_height: float = 1.5
+    attack_cooldown_time: float = 1.5
     grounded: bool = False
     jump_up_duration: float = 0.5
     fall_after: float = 0.35
     air_time: float = 0
     hp_scale: float = 1.5
+    attack_cooldown: float = 0
 
     def __init__(self, player):
         self.hp = self.max_hp
+        self.attack_cooldown = self.attack_cooldown_time
         self.player_ref = player
         position = player.position
         super().__init__(
@@ -129,6 +159,7 @@ class Enemy(Entity):
 
     def delete(self):
         logger.info("Delete Enemy")
+        destroy(self.health_bar)
         _destroy = lambda: destroy(self)
         self.rotation_z = 70
         invoke(_destroy, delay=0.5)
@@ -141,22 +172,31 @@ class Enemy(Entity):
         def _raycast(origin):
             return raycast(origin=origin, direction=self.forward, distance=0.5, ignore=(self,))
 
+        if not self.player_ref.enabled:
+            return
         self.look_at_2d(self.player_ref.position, "y")
         ray_feet = _raycast(origin=self.position + Vec3(0, 0.1, 0))
         ray_head = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0))
         distance_to_player = distance_xz(self.player_ref.position, self.position)
         nearby_player = True if distance_to_player < 40 else False
-        attack_player = True if distance_to_player < 4 else False
+        attack_player = True if distance_to_player < 2 else False
 
         if ray_head.hit:
             pass
-        elif attack_player or ray_feet.hit:
+        elif attack_player:
+            if self.attack_cooldown <= 0:
+                logger.info("Enemy attack")
+                self.blink(yellow, duration=0.3)
+                self.player_ref.hit()
+                self.attack_cooldown = self.attack_cooldown_time
+        elif ray_feet.hit:
             self.jump()
         elif nearby_player:
             self.position += self.forward * self.speed * utime.dt
 
         self.update_gravity()
         self.health_bar.alpha = max(0, self.health_bar.alpha - utime.dt)
+        self.attack_cooldown = max(0, self.attack_cooldown - utime.dt)
         self.rotation_y -= 180  # Correct facing direction of model object
 
     def update_gravity(self):
@@ -182,7 +222,7 @@ class Enemy(Entity):
         invoke(self.y_animator.pause, delay=self.fall_after)
 
     def hit(self):
-        self.blink(red)
+        self.blink(red, duration=0.3)
         self.hp -= 1
         self.health_bar.world_scale_x = self.hp / self.max_hp * self.hp_scale
         self.health_bar.alpha = 1
@@ -479,6 +519,7 @@ class UrsinaMC(MainMenuUrsina):
             )
         elif self.loading_step == 50:
             self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
+            self.minimap.update_positions(self.start_position)
             self.minimap.map.visible = False
             self.minimap.player_icon.visible = False
         elif self.loading_step == 80:
