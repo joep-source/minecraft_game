@@ -10,10 +10,12 @@ ursina = "*"
 noise = "*"
 
 [dev-packages]
+autoflake = "*"
 black = "*"
 ipykernel = "*"
 isort = "*"
 mypy = "*"
+pre-commit = "*"
 pytest = "*"
 
 [requires]
