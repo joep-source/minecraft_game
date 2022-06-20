@@ -1,3 +1,5 @@
+<div align="center">
+
 # Minecraft themed FPS
 
 [![CI](https://github.com/joep-source/minecraft_game/actions/workflows/python-app.yml/badge.svg?branch=main)](https://github.com/joep-source/minecraft_game/actions/workflows/python-app.yml)
@@ -6,7 +8,9 @@
 
 A Minecraft themed FPS game on randomly generated island maps, built with Ursina Engine.
 
-# Motivation :star:
+</div>
+
+## Motivation :star:
 
 Inspired by an article about Minecraft world generation in Python, I decided to create something similar myself. 
 Combining one of my favorite programming languages and videogames together :heart:.
@@ -16,7 +20,7 @@ But, a 3D map of an island is still a bit boring, so I decided to turn it into 3
 Python may not be your first choice, but I wanted to see how far I could push this. 
 At the time of writing, [Ursina Engine](https://www.ursinaengine.org/) is one of the best and easiest to use 3D game engines, among the little competition.
 
-# Getting started :video_game:
+## Getting started :video_game:
 
 Installation:
 - clone repository
@@ -26,17 +30,17 @@ Installation:
 Play:
 - `python play.py`
 
-## Tested setups
+### Tested setups
 - Ubuntu with Python 3.8.
 - Windows with Python 3.8.
 
-## Troubleshooting
+### Troubleshooting
 - Issue: `UserWarning: Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.` <br>
   Solutions:
     - `pip install pyqt5`
     - `sudo apt-get install python3-tk` (Unix systems)
 
-# Sources :books:
+## Sources :books:
 - [Ursina Engine](https://www.ursinaengine.org/).
 - Article [Replicating Minecraft World Generation in Python](https://towardsdatascience.com/replicating-minecraft-world-generation-in-python-1b491bc9b9a4) by Bilal Himite.
 - Article [Generating Digital Worlds Using Perlin Noise](https://medium.com/nerd-for-tech/generating-digital-worlds-using-perlin-noise-5d11237c29e9) by Robert MacWha.
@@ -44,5 +48,5 @@ Play:
 - Created block textures with [Tynker](https://www.tynker.com/minecraft).
 - 3D enemy object [Necromancer](https://skfb.ly/6RprX) by omargabagu.
 
-# License :label:
+## License :label:
 MIT
