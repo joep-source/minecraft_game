@@ -5,6 +5,7 @@ from copy import deepcopy
 from enum import Enum
 from functools import lru_cache
 from os import path
+from time import time
 from typing import List, Set, Tuple, Union
 
 import numpy as np
@@ -134,18 +135,21 @@ class Enemy(Entity):
     height: int = 2
     jump_height: float = 1.5
     attack_cooldown_time: float = 1.5
+    turn_cooldown_time: float = 0.4
     grounded: bool = False
     jump_up_duration: float = 0.5
     fall_after: float = 0.35
     air_time: float = 0
     hp_scale: float = 1.5
     attack_cooldown: float = 0
+    turn_cooldown: float = 0
 
-    def __init__(self, player):
+    def __init__(self, player, position):
         self.hp = self.max_hp
         self.attack_cooldown = self.attack_cooldown_time
+        self.turn_cooldown = time()
         self.player_ref = player
-        position = player.position
+        position[Y] += 1
         super().__init__(
             model="enemy",
             texture="enemy",
@@ -156,6 +160,7 @@ class Enemy(Entity):
         self.health_bar = Entity(
             parent=self, y=2.8, model="cube", color=red, world_scale=(self.hp_scale, 0.1, 0.1)
         )
+        self.disable()
 
     def delete(self):
         logger.info("Delete Enemy")
@@ -173,31 +178,33 @@ class Enemy(Entity):
             return raycast(origin=origin, direction=self.forward, distance=0.5, ignore=(self,))
 
         if not self.player_ref.enabled:
-            return
-        self.look_at_2d(self.player_ref.position, "y")
-        ray_feet = _raycast(origin=self.position + Vec3(0, 0.1, 0))
-        ray_head = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0))
-        distance_to_player = distance_xz(self.player_ref.position, self.position)
-        nearby_player = True if distance_to_player < 40 else False
-        attack_player = True if distance_to_player < 2 else False
+            return  # Bugfix while destroying game
+        if time() - self.turn_cooldown > self.turn_cooldown_time:
+            self.turn_cooldown = time()
+            self.look_at_2d(self.player_ref.position, "y")
+            self.rotation_y -= 180
+        feet_hit = _raycast(origin=self.position + Vec3(0, 0.1, 0)).hit
+        head_hit = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0)).hit
 
-        if ray_head.hit:
+        distance_to_player = distance_xz(self.player_ref.position, self.position)
+        if head_hit:
             pass
-        elif attack_player:
+        elif distance_to_player < 2:
             if self.attack_cooldown <= 0:
                 logger.info("Enemy attack")
                 self.blink(yellow, duration=0.3)
+                self.shake()
                 self.player_ref.hit()
                 self.attack_cooldown = self.attack_cooldown_time
-        elif ray_feet.hit:
+        elif feet_hit:
             self.jump()
-        elif nearby_player:
-            self.position += self.forward * self.speed * utime.dt
+        elif distance_to_player < 40:
+            # Move backward to correct model facing direction
+            self.position += self.back * self.speed * utime.dt
 
         self.update_gravity()
         self.health_bar.alpha = max(0, self.health_bar.alpha - utime.dt)
         self.attack_cooldown = max(0, self.attack_cooldown - utime.dt)
-        self.rotation_y -= 180  # Correct facing direction of model object
 
     def update_gravity(self):
         ray_down = raycast(self.world_position + (0, self.height, 0), self.down, ignore=(self,))
@@ -352,10 +359,13 @@ class MiniMap:
 class World:
     render_size: int
     player: Player
+    world_map2d: Map2D
+    world_size: int
+    position_start: List[int]
     enemies: List[Enemy] = list()
     blocks: List[Block] = list()
 
-    def __init__(self, world_map2d: Map2D, world_size: int, position_start, render_size: int):
+    def __init__(self, world_map2d: Map2D, world_size: int, render_size: int):
         logger.info("Initialize World")
         self.world_map2d = world_map2d
         self.world_size = world_size
@@ -368,13 +378,20 @@ class World:
             position=(0, -1.9, 0),
             visible=False,
         )
-        self.update_positions(position_start, None)
+        self.position_start = self.random_island_position(self.world_map2d, self.world_size)
+        self.update_positions(self.position_start, None)
 
-    def init_player(self, position_start, speed, allow_fly=False):
-        self.player = Player(position_start=position_start, speed=speed, allow_fly=True)
+    def init_player(self, speed, allow_fly=False):
+        self.player = Player(position_start=self.position_start, speed=speed, allow_fly=True)
 
     def init_enemies(self, total_enemies=1):
-        self.enemies = [Enemy(player=self.player) for _ in range(total_enemies)]
+        positions_taken = [self.player.position]
+        for _ in range(total_enemies):
+            while (
+                position := self.random_island_position(self.world_map2d, self.world_size)
+            ) in positions_taken:
+                pass
+            self.enemies.append(Enemy(player=self.player, position=position))
 
     def delete(self):
         logger.info("Delete World")
@@ -468,6 +485,17 @@ class World:
                 self.blocks.append(new_block)
                 block.create_position = None
 
+    @staticmethod
+    def random_island_position(world_map2d: Map2D, world_size: int) -> List[int]:
+        while True:
+            x = random.randint(1, world_size - 1)
+            z = random.randint(1, world_size - 1)
+            biome_block = world_map2d[x][z]
+            position = [x + 0.5, biome_block.world_height, z + 0.5]
+            if biome_block.biome not in [Biomes.SEA, Biomes.LAKE]:
+                logger.debug(f"Random position {position=}")
+                return position
+
 
 class UrsinaMC(MainMenuUrsina):
     world_map2d: Map2D = None
@@ -503,30 +531,25 @@ class UrsinaMC(MainMenuUrsina):
             )
         elif self.loading_step == 10:
             # Generate map 1/3
-            heigth_map = generate_noise_map(self.world_shape, self.seed, **NOISE_HEIGHT_ISLAND)
-            circulair_map = create_circular_map_mask(self.world_size)
-            self._heigth_map_island = combine_maps(heigth_map, circulair_map)
+            height_map = generate_noise_map(self.world_shape, self.seed, **NOISE_HEIGHT_ISLAND)
+            circular_map = create_circular_map_mask(self.world_size)
+            self._height_map_island = combine_maps(height_map, circular_map)
         elif self.loading_step == 20:
             # Generate map 2/3
             self._heat_map = generate_noise_map(self.world_shape, self.seed, **NOISE_HEAT)
         elif self.loading_step == 30:
             # Generate map 3/3
-            self.world_map2d = convert_to_blocks_map(self._heigth_map_island, self._heat_map)
+            self.world_map2d = convert_to_blocks_map(self._height_map_island, self._heat_map)
         elif self.loading_step == 40:
-            self.start_position = self.random_start_position(world_size=self.world_size)
-            self.world = World(
-                self.world_map2d, self.world_size, self.start_position, self.render_size
-            )
+            self.world = World(self.world_map2d, self.world_size, self.render_size)
         elif self.loading_step == 50:
             self.minimap = MiniMap(self.world_map2d, self.seed, self.world_size)
-            self.minimap.update_positions(self.start_position)
+            self.minimap.update_positions(self.world.position_start)
             self.minimap.map.visible = False
             self.minimap.player_icon.visible = False
         elif self.loading_step == 80:
-            self.world.init_player(
-                position_start=self.start_position, speed=self.speed, allow_fly=True
-            )
-            self.world.init_enemies(total_enemies=1)
+            self.world.init_player(speed=self.speed, allow_fly=True)
+            self.world.init_enemies(total_enemies=100)
         elif self.loading_step == 90:
             destroy(self.loading_bar)
             self.loading_bar = None
@@ -557,17 +580,6 @@ class UrsinaMC(MainMenuUrsina):
         destroy(self.game_background)
         self.game_background = None
         self.loading_step = 0
-
-    @timeit
-    def random_start_position(self, world_size: int):
-        while True:
-            x = random.randint(1, world_size - 1)
-            z = random.randint(1, world_size - 1)
-            biome_block = self.world_map2d[x][z]
-            position = [x + 0.5, biome_block.world_height, z + 0.5]
-            logger.debug(f"Random position {position=}")
-            if biome_block.biome not in [Biomes.SEA, Biomes.LAKE]:
-                return position
 
     def input(self, key):
         if key == "escape":
