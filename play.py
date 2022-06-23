@@ -14,6 +14,7 @@ from ursina.camera import instance as camera
 from ursina.color import color, gray, light_gray, red, yellow
 from ursina.curve import out_expo
 from ursina.entity import Entity
+from ursina.hit_info import HitInfo
 from ursina.input_handler import held_keys
 from ursina.main import time as utime
 from ursina.models.procedural.grid import Grid
@@ -132,17 +133,19 @@ class Enemy(Entity):
     hp: int
     max_hp: int = 10
     speed: int = 4
+    minimum_attack_distance: int = 2
     height: int = 2
     jump_height: float = 1.5
     attack_cooldown_time: float = 1.5
     turn_cooldown_time: float = 0.4
+    attack_cooldown: float = 0
+    turn_cooldown: float = 0
     grounded: bool = False
     jump_up_duration: float = 0.5
     fall_after: float = 0.35
     air_time: float = 0
     hp_scale: float = 1.5
-    attack_cooldown: float = 0
-    turn_cooldown: float = 0
+    to_be_deleted: bool = False
 
     def __init__(self, player, position):
         self.hp = self.max_hp
@@ -165,9 +168,10 @@ class Enemy(Entity):
     def delete(self):
         logger.info("Delete Enemy")
         destroy(self.health_bar)
-        _destroy = lambda: destroy(self)
         self.rotation_z = 70
+        _destroy = lambda: destroy(self)
         invoke(_destroy, delay=0.5)
+        self.to_be_deleted = True
 
     def input(self, key):
         if self.hovered and key == "left mouse down":
@@ -183,22 +187,22 @@ class Enemy(Entity):
             self.turn_cooldown = time()
             self.look_at_2d(self.player_ref.position, "y")
             self.rotation_y -= 180
-        feet_hit = _raycast(origin=self.position + Vec3(0, 0.1, 0)).hit
-        head_hit = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0)).hit
+        hit_feet: HitInfo = _raycast(origin=self.position + Vec3(0, 0.1, 0))
+        hit_head: HitInfo = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0))
+        distance_to_player: int = distance_xz(self.player_ref.position, self.position)
 
-        distance_to_player = distance_xz(self.player_ref.position, self.position)
-        if head_hit:
+        if hit_head.hit and isinstance(hit_head.entity, Block):
             pass
-        elif distance_to_player < 2:
+        elif distance_to_player < self.minimum_attack_distance:
             if self.attack_cooldown <= 0:
                 logger.info("Enemy attack")
                 self.blink(yellow, duration=0.3)
                 self.shake()
                 self.player_ref.hit()
                 self.attack_cooldown = self.attack_cooldown_time
-        elif feet_hit:
+        elif hit_feet.hit and isinstance(hit_feet.entity, Block):
             self.jump()
-        elif distance_to_player < 40:
+        else:
             # Move backward to correct model facing direction
             self.position += self.back * self.speed * utime.dt
 
@@ -207,18 +211,24 @@ class Enemy(Entity):
         self.attack_cooldown = max(0, self.attack_cooldown - utime.dt)
 
     def update_gravity(self):
-        ray_down = raycast(self.world_position + (0, self.height, 0), self.down, ignore=(self,))
-        if ray_down.distance <= self.height + 0.1:
+        hit_down: HitInfo = raycast(
+            origin=self.world_position + (0, self.height, 0),
+            direction=self.down,
+            ignore=tuple(e for e in scene.entities if isinstance(e, Enemy)),
+        )
+        if hit_down.distance <= self.height + 0.1:
             self.grounded = True
             self.air_time = 0
         else:
             self.grounded = False
-            self.y -= min(self.air_time, ray_down.distance - 0.05) * utime.dt * 100
+            self.y -= min(self.air_time, hit_down.distance - 0.05) * utime.dt * 100
             self.air_time += utime.dt * 0.25
 
     def jump(self):
         if not self.grounded:
             return
+        if self.to_be_deleted:
+            return  # Prevent invoke function when going to be deleted
         self.grounded = False
         self.animate_y(
             self.y + self.jump_height,
@@ -606,7 +616,7 @@ if __name__ == "__main__":
 
     window.title = "Minecraft Ursina"
     window.borderless = True
-    window.fullscreen = False
+    window.fullscreen = True
     window.exit_button.enabled = False
     window.fps_counter.enabled = True
 
