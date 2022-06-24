@@ -47,6 +47,7 @@ Play:
 - Article [Making maps with noise functions](https://www.redblobgames.com/maps/terrain-from-noise/) by Red Blob Games.
 - Created block textures with [Tynker](https://www.tynker.com/minecraft).
 - 3D enemy object [Necromancer](https://skfb.ly/6RprX) by omargabagu.
+- Cursor icon [Fighting Weapon Target](https://www.flaticon.com/free-icon/fighting-weapon-target_20180) by Freepik.
 
 ## License :label:
 MIT

@@ -71,6 +71,8 @@ class Player(FirstPersonController):
 
     def __init__(self, position_start, speed, allow_fly=False):
         super().__init__()
+        self.cursor.texture = get_texture("cursor")
+        self.cursor.scale = 0.02
         self.allow_fly = allow_fly
         self.speed = speed
         position_start[Y] += 3  # Let player fall on the map from sky
@@ -124,6 +126,7 @@ class Player(FirstPersonController):
         self.health_bar.value = self.hp
         self.health_bar.text_entity.text = ""
         self.health_bar.bar.blink(yellow, duration=0.3)
+        self.cursor.shake(magnitude=7)
 
 
 class Enemy(Entity):
@@ -195,11 +198,7 @@ class Enemy(Entity):
             pass
         elif distance_to_player < self.minimum_attack_distance:
             if self.attack_cooldown <= 0:
-                logger.info("Enemy attack")
-                self.blink(yellow, duration=0.3)
-                self.shake()
-                self.player_ref.hit()
-                self.attack_cooldown = self.attack_cooldown_time
+                self.attack()
         elif hit_feet.hit and isinstance(hit_feet.entity, Block):
             self.jump()
         else:
@@ -238,6 +237,13 @@ class Enemy(Entity):
         )
         invoke(self.y_animator.pause, delay=self.fall_after)
 
+    def attack(self):
+        logger.info("Enemy attack")
+        self.blink(yellow, duration=0.3)
+        self.shake()
+        self.player_ref.hit()
+        self.attack_cooldown = self.attack_cooldown_time
+
     def hit(self, damage=20):
         self.blink(red, duration=0.3)
         self.hp -= damage
@@ -246,25 +252,27 @@ class Enemy(Entity):
 
 
 @lru_cache(maxsize=None)
-def get_texture(biome: Union[str, None]):
+def get_texture(name: Union[str, None]):
     get_file = lambda name: path.join("assets", name)
-    if biome == Biomes.SEA:
+    if name == Biomes.SEA:
         return load_texture(get_file("sea.png"))
-    elif biome == Biomes.LAKE:
+    elif name == Biomes.LAKE:
         return load_texture(get_file("water.png"))
-    elif biome == Biomes.DESERT:
+    elif name == Biomes.DESERT:
         return load_texture(get_file("sand.png"))
-    elif biome == Biomes.SAVANNA:
+    elif name == Biomes.SAVANNA:
         return load_texture(get_file("savanna.png"))
-    elif biome == Biomes.PLANE:
+    elif name == Biomes.PLANE:
         return load_texture(get_file("grass.png"))
-    elif biome == Biomes.HILL:
+    elif name == Biomes.HILL:
         return load_texture(get_file("grass_stone.png"))
-    elif biome == Biomes.MOUNTAIN:
+    elif name == Biomes.MOUNTAIN:
         return load_texture(get_file("stone.png"))
-    elif biome == Biomes.MOUNTAIN_SNOW:
+    elif name == Biomes.MOUNTAIN_SNOW:
         return load_texture(get_file("snow.png"))
-    elif biome == None:
+    elif name == "cursor":
+        return load_texture(get_file("cursor.png"))
+    elif name == None:
         return load_texture(get_file("plank.png"))
 
 
