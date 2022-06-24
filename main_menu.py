@@ -62,10 +62,15 @@ class MainMenuUrsina(Ursina):
             text="Player blocks view:", min=4, max=30, step=1, default=conf.BLOCKS_RENDER_DISTANCE
         )
         size_slider = Slider(text="World size:", min=50, max=2000, step=5, default=conf.WORLD_SIZE)
+        enemies_total_slider = Slider(
+            text="Number of enemies", min=0, max=500, step=10, default=conf.ENEMIES_TOTAL
+        )
+
         self.custom_settings = {
             "player_speed": speed_slider,
             "render_size": render_slider,
             "world_size": size_slider,
+            "enemies_total": enemies_total_slider,
         }
 
         self.custom_menu.buttons = [
@@ -77,7 +82,7 @@ class MainMenuUrsina(Ursina):
 
         for i, entity in enumerate(list(self.custom_settings.values()) + self.custom_menu.buttons):
             entity.parent = self.custom_menu
-            entity.y = -i * self.button_spacing
+            entity.y = -i * self.button_spacing + 0.2
 
     def pre_start_game(self, **kwargs):
         settings = kwargs

@@ -131,7 +131,7 @@ class Enemy(Entity):
     player_ref: Player
     health_bar: Entity
     hp: int
-    max_hp: int = 10
+    max_hp: int = 100
     speed: int = 4
     minimum_attack_distance: int = 2
     height: int = 2
@@ -238,9 +238,9 @@ class Enemy(Entity):
         )
         invoke(self.y_animator.pause, delay=self.fall_after)
 
-    def hit(self):
+    def hit(self, damage=20):
         self.blink(red, duration=0.3)
-        self.hp -= 1
+        self.hp -= damage
         self.health_bar.world_scale_x = self.hp / self.max_hp * self.hp_scale
         self.health_bar.alpha = 1
 
@@ -395,13 +395,22 @@ class World:
         self.player = Player(position_start=self.position_start, speed=speed, allow_fly=True)
 
     def init_enemies(self, total_enemies=1):
-        positions_taken = [self.player.position]
+        positions_taken = points_in_2dcircle(
+            radius=self.render_size,
+            x_offset=int(self.player.position[X]),
+            y_offset=int(self.player.position[Z]),
+        )
         for _ in range(total_enemies):
-            while (
-                position := self.random_island_position(self.world_map2d, self.world_size)
-            ) in positions_taken:
-                pass
-            self.enemies.append(Enemy(player=self.player, position=position))
+            try_count = 0
+            while try_count < 10:
+                position = self.random_island_position(self.world_map2d, self.world_size)
+                position_2d = (position[X] + 0.5, position[Z] + 0.5)
+                if position_2d not in positions_taken:
+                    self.enemies.append(Enemy(player=self.player, position=position))
+                    positions_taken.add(position_2d)
+                    break
+            try_count += 1
+        print(positions_taken)
 
     def delete(self):
         logger.info("Delete World")
@@ -416,7 +425,7 @@ class World:
 
     def update_enemies(self):
         for enemy in reversed(self.enemies):
-            if enemy.hp <= 0:
+            if enemy.hp <= 0 and enemy.to_be_deleted == False:
                 self.enemies.remove(enemy)
                 enemy.delete()
 
@@ -526,7 +535,10 @@ class UrsinaMC(MainMenuUrsina):
         self.world_shape = (self.world_size, self.world_size)
         self.speed = kwargs.get("player_speed", conf.PLAYER_SPEED)
         self.render_size = kwargs.get("render_size", conf.BLOCKS_RENDER_DISTANCE)
-        print(f"Settings: {self.seed=}, {self.world_size=}, {self.speed=}, {self.render_size=}")
+        self.enemies_total = kwargs.get("enemies_total", conf.ENEMIES_TOTAL)
+        logger.info(
+            f"Settings: {self.seed=}, {self.world_size=}, {self.speed=}, {self.render_size=}, {self.enemies_total=}"
+        )
 
     def load_game_sequentially(self):
         if self.loading_step == 0:
@@ -559,7 +571,7 @@ class UrsinaMC(MainMenuUrsina):
             self.minimap.player_icon.visible = False
         elif self.loading_step == 80:
             self.world.init_player(speed=self.speed, allow_fly=True)
-            self.world.init_enemies(total_enemies=100)
+            self.world.init_enemies(total_enemies=self.enemies_total)
         elif self.loading_step == 90:
             destroy(self.loading_bar)
             self.loading_bar = None
