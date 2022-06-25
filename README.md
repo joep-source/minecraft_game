@@ -46,7 +46,9 @@ Play:
 - Article [Generating Digital Worlds Using Perlin Noise](https://medium.com/nerd-for-tech/generating-digital-worlds-using-perlin-noise-5d11237c29e9) by Robert MacWha.
 - Article [Making maps with noise functions](https://www.redblobgames.com/maps/terrain-from-noise/) by Red Blob Games.
 - Created block textures with [Tynker](https://www.tynker.com/minecraft).
+- 3D player object [Soldier](https://www.tynker.com/minecraft/editor/mob/zombie/5d8ba4c0f22e09193573a962/) by LikeAboss.
 - 3D enemy object [Necromancer](https://skfb.ly/6RprX) by omargabagu.
+- [Blockbench](https://web.blockbench.net/) for editing 3D objects.
 - Cursor icon [Fighting Weapon Target](https://www.flaticon.com/free-icon/fighting-weapon-target_20180) by Freepik.
 
 ## License :label:

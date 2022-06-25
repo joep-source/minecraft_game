@@ -64,6 +64,7 @@ class Player(FirstPersonController):
     position: List
     position_previous: List
     health_bar: HealthBar
+    gun_flash: Entity
     hp: int
     max_hp: int = 100
     health_bar_len = 0.6
@@ -71,6 +72,8 @@ class Player(FirstPersonController):
 
     def __init__(self, position_start, speed, allow_fly=False):
         super().__init__()
+        self.model = "player"
+        self.texture = "player"
         self.cursor.texture = get_texture("cursor")
         self.cursor.scale = 0.02
         self.allow_fly = allow_fly
@@ -90,6 +93,16 @@ class Player(FirstPersonController):
             bar_color=red,
         )
         self.health_bar.text_entity.text = ""
+        self.gun_flash = Entity(
+            parent=self,
+            z=1.35,
+            y=1.6,
+            x=-0.11,
+            world_scale=0.09,
+            model="quad",
+            color=yellow,
+            enabled=False,
+        )
         logger.info(f"Player position start {self.position}")
 
     def delete(self):
@@ -106,6 +119,8 @@ class Player(FirstPersonController):
             logger.info(f"Player position is {self.position}, {self.speed=}")
         if key == "e" and self.allow_fly:
             self.gravity = 0
+        if key == "left mouse down":
+            self.shoot()
 
     def update(self):
         if self.allow_fly:
@@ -127,6 +142,11 @@ class Player(FirstPersonController):
         self.health_bar.text_entity.text = ""
         self.health_bar.bar.blink(yellow, duration=0.3)
         self.cursor.shake(magnitude=7)
+        self.shake()
+
+    def shoot(self):
+        self.gun_flash.enabled = True
+        invoke(self.gun_flash.disable, delay=0.05)
 
 
 class Enemy(Entity):
