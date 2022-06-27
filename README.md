@@ -23,19 +23,19 @@ Play:
 - `pipenv sync` (only once)
 - `python play.py`
 
-## Motivation :star:
+## Motivation :bulb:
 
 Inspired by an article about Minecraft world generation in Python, I wanted to create something similar myself.
 Combining one of my favorite programming languages and videogames together :heart:. 
 A non-interactive 3D map was still a bit boring so I turned it into playable game.
 
-## Media
+## Media :camera:
 
 <center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/play.png" alt="play" width="640" height="360"></center>
 <br>
 <center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/spectate.png" alt="spectate" width="640" height="360"></center>
 
-## Game features
+## Game features :gift:
 
 - Enemies are spawned randomly over the island.
 - Hit and attack animation for player and enemy.
@@ -48,7 +48,7 @@ A non-interactive 3D map was still a bit boring so I turned it into playable gam
 - Progress bar on loading screen.
 - Main menu with settings.
 
-## Troubleshooting
+## Troubleshooting :wrench:
 
 - Issue: `UserWarning: Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.` <br>
   Solutions:
