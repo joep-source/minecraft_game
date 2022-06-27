@@ -10,6 +10,7 @@ from typing import List, Set, Tuple, Union
 
 import numpy as np
 from matplotlib import pyplot as plt
+from ursina import application
 from ursina.camera import instance as camera
 from ursina.color import color, gray, light_gray, red, yellow
 from ursina.curve import out_expo
@@ -20,6 +21,7 @@ from ursina.main import time as utime
 from ursina.models.procedural.grid import Grid
 from ursina.mouse import instance as mouse
 from ursina.prefabs.button import Button
+from ursina.prefabs.editor_camera import EditorCamera
 from ursina.prefabs.first_person_controller import FirstPersonController
 from ursina.prefabs.health_bar import HealthBar
 from ursina.prefabs.sky import Sky
@@ -115,8 +117,6 @@ class Player(FirstPersonController):
         if key == "space":
             self.jump()
             self.gravity = 1
-        if key == "i":
-            logger.info(f"Player position is {self.position}, {self.speed=}")
         if key == "e" and self.allow_fly:
             self.gravity = 0
         if key == "left mouse down":
@@ -179,7 +179,7 @@ class Enemy(Entity):
         super().__init__(
             model="enemy",
             texture="enemy",
-            scale=0.95,
+            scale=0.9,
             collider="mesh",
             position=position,
         )
@@ -540,7 +540,7 @@ class World:
             biome_block = world_map2d[x][z]
             position = [x + 0.5, biome_block.world_height, z + 0.5]
             if biome_block.biome not in [Biomes.SEA, Biomes.LAKE]:
-                logger.debug(f"Random position {position=}")
+                logger.debug(f"Random position {position}")
                 return position
 
 
@@ -550,6 +550,7 @@ class UrsinaMC(MainMenuUrsina):
     minimap = None
     game_background = None
     loading_step: int = 0
+    spectate_camera: Entity = EditorCamera(enabled=False, ignore_paused=True)
 
     def __init__(self):
         super().__init__()
@@ -565,7 +566,7 @@ class UrsinaMC(MainMenuUrsina):
         self.render_size = kwargs.get("render_size", conf.BLOCKS_RENDER_DISTANCE)
         self.enemies_total = kwargs.get("enemies_total", conf.ENEMIES_TOTAL)
         logger.info(
-            f"Settings: {self.seed=}, {self.world_size=}, {self.speed=}, {self.render_size=}, {self.enemies_total=}"
+            f"Settings: seed={self.seed}, world_size={self.world_size=}, speed={self.speed=}, render_size={self.render_size=}, enemies_total={self.enemies_total=}"
         )
 
     def load_game_sequentially(self):
@@ -635,6 +636,15 @@ class UrsinaMC(MainMenuUrsina):
         if key == "escape":
             self.quit_game()
         super().input(key)
+        if key == "tab":
+            toggle_spectate = not self.spectate_camera.enabled
+            application.paused = toggle_spectate
+            mouse.locked = not toggle_spectate
+            player = self.world.player
+            player.cursor.enabled = not toggle_spectate
+            position = player.position + player.up * 3 + player.back * 3
+            self.spectate_camera.position = position
+            self.spectate_camera.enabled = toggle_spectate
 
     def _update(self, task):
         if self.game_state == GameState.STARTING:
@@ -658,6 +668,6 @@ if __name__ == "__main__":
     window.borderless = True
     window.fullscreen = True
     window.exit_button.enabled = False
-    window.fps_counter.enabled = True
+    window.fps_counter.enabled = False
 
     app.run()
