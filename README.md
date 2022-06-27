@@ -2,43 +2,62 @@
 
 # Minecraft themed FPS
 
+A Minecraft themed FPS game on randomly generated island maps, built with Python and Ursina Engine.
+
 [![CI](https://github.com/joep-source/minecraft_game/actions/workflows/python-app.yml/badge.svg?branch=main)](https://github.com/joep-source/minecraft_game/actions/workflows/python-app.yml)
 [![License: MIT](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/joep-source/minecraft_game/blob/main/LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A Minecraft themed FPS game on randomly generated island maps, built with Ursina Engine.
-
 </div>
+
+## Play locally :video_game:
+
+<img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/player_icon.png" align="right" alt="Soldier logo by LikeAboss" width="120" height="178">
+
+Requirements:
+- Python 3.6+
+- [Pipenv](https://pypi.org/project/pipenv/)
+
+Play:
+- `pipenv shell`
+- `pipenv sync` (only once)
+- `python play.py`
 
 ## Motivation :star:
 
-Inspired by an article about Minecraft world generation in Python, I decided to create something similar myself. 
-Combining one of my favorite programming languages and videogames together :heart:.
-With help from a few articles I discovered techniques such as perlin noise for endless natural map generation, circular gradients to create an island shape, and combining altitude with temperature maps to create different biomes.
+Inspired by an article about Minecraft world generation in Python, I wanted to create something similar myself.
+Combining one of my favorite programming languages and videogames together :heart:. 
+A non-interactive 3D map was still a bit boring so I turned it into playable game.
 
-But, a 3D map of an island is still a bit boring, so I decided to turn it into 3D game.
-Python may not be your first choice, but I wanted to see how far I could push this. 
-At the time of writing, [Ursina Engine](https://www.ursinaengine.org/) is one of the best and easiest to use 3D game engines, among the little competition.
+## Media
 
-## Getting started :video_game:
+<center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/play.png" alt="play" width="640" height="360"></center>
+<br>
+<center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/spectate.png" alt="spectate" width="640" height="360"></center>
 
-Installation:
-- clone repository
-- `pipenv shell`
-- `pipenv sync`
+## Game features
 
-Play:
-- `python play.py`
+- Enemies are spawned randomly over the island.
+- Hit and attack animation for player and enemy.
+- Minimap with live player position.
+- Player and enemy can jump.
+- Sink in water.
+- Player can place wood blocks on land to block enemies.
+- Random island shapes.
+- Biomes based on altitude and temperature.
+- Progress bar on loading screen.
+- Main menu with settings.
 
-### Tested setups
-- Ubuntu with Python 3.8.
-- Windows with Python 3.8.
+## Troubleshooting
 
-### Troubleshooting
 - Issue: `UserWarning: Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.` <br>
   Solutions:
     - `pip install pyqt5`
     - `sudo apt-get install python3-tk` (Unix systems)
+
+### Tested setups
+- Ubuntu with Python 3.8.
+- Windows with Python 3.8.
 
 ## Sources :books:
 - [Ursina Engine](https://www.ursinaengine.org/).
