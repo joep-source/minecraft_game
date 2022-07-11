@@ -31,9 +31,9 @@ A non-interactive 3D map was still a bit boring so I turned it into playable gam
 
 ## Media :camera:
 
-<center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/play.png" alt="play" width="640" height="360"></center>
+<center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/play.png" alt="play" ></center>
 <br>
-<center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/spectate.png" alt="spectate" width="640" height="360"></center>
+<center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/spectate.png" alt="spectate"></center>
 
 ## Game features :gift:
 

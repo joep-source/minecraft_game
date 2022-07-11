@@ -28,7 +28,7 @@ from ursina.prefabs.sky import Sky
 from ursina.raycaster import raycast
 from ursina.scene import instance as scene
 from ursina.texture_importer import load_texture
-from ursina.ursinamath import distance_xz
+from ursina.ursinamath import distance
 from ursina.ursinastuff import destroy, invoke
 from ursina.vec3 import Vec3
 from ursina.window import instance as window
@@ -212,7 +212,7 @@ class Enemy(Entity):
             self.rotation_y -= 180
         hit_feet: HitInfo = _raycast(origin=self.position + Vec3(0, 0.1, 0))
         hit_head: HitInfo = _raycast(origin=self.position + Vec3(0, self.height - 0.1, 0))
-        distance_to_player: int = distance_xz(self.player_ref.position, self.position)
+        distance_to_player: int = distance(self.player_ref.position, self.position)
 
         if hit_head.hit and isinstance(hit_head.entity, Block):
             pass
