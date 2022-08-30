@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/player_icon.png" align="right" alt="Soldier logo by LikeAboss" width="120" height="178">
+
 <div align="center">
 
 # Minecraft themed FPS
@@ -10,9 +12,9 @@ A Minecraft themed FPS game on randomly generated island maps, built with Python
 
 </div>
 
-## Play locally :video_game:
+https://user-images.githubusercontent.com/55184540/185780874-fe044b5f-9dfb-46f2-9074-28df2d5835d1.mp4
 
-<img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/player_icon.png" align="right" alt="Soldier logo by LikeAboss" width="120" height="178">
+## Play locally :video_game:
 
 Requirements:
 - Python 3.6+
@@ -29,12 +31,6 @@ Inspired by an article about Minecraft world generation in Python, I wanted to c
 Combining one of my favorite programming languages and videogames together :heart:. 
 A non-interactive 3D map was still a bit boring so I turned it into playable game.
 
-## Media :camera:
-
-<center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/play.png" alt="play" ></center>
-<br>
-<center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/spectate.png" alt="spectate"></center>
-
 ## Game features :gift:
 
 - Enemies are spawned randomly over the island.
@@ -48,6 +44,12 @@ A non-interactive 3D map was still a bit boring so I turned it into playable gam
 - Progress bar on loading screen.
 - Main menu with settings.
 
+## Media :camera:
+
+<center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/play.png" alt="play" ></center>
+<br>
+<center><img src="https://raw.githubusercontent.com/joep-source/minecraft_game/main/media/spectate.png" alt="spectate"></center>
+
 ## Troubleshooting :wrench:
 
 - Issue: `UserWarning: Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.` <br>
@@ -60,6 +62,7 @@ A non-interactive 3D map was still a bit boring so I turned it into playable gam
 - Windows with Python 3.8.
 
 ## Sources :books:
+
 - [Ursina Engine](https://www.ursinaengine.org/).
 - Article [Replicating Minecraft World Generation in Python](https://towardsdatascience.com/replicating-minecraft-world-generation-in-python-1b491bc9b9a4) by Bilal Himite.
 - Article [Generating Digital Worlds Using Perlin Noise](https://medium.com/nerd-for-tech/generating-digital-worlds-using-perlin-noise-5d11237c29e9) by Robert MacWha.
